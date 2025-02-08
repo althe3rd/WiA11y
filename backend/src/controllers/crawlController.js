@@ -4,13 +4,15 @@ const crawlerService = require('../services/crawlerServiceInstance');
 const crawlController = {
   async createCrawl(req, res) {
     try {
-      const { domain, crawlRate, depthLimit, pageLimit } = req.body;
+      const { domain, crawlRate, depthLimit, pageLimit, wcagVersion, wcagLevel } = req.body;
       
       console.log('Received crawl request:', {
         domain,
         crawlRate,
         depthLimit,
-        pageLimit
+        pageLimit,
+        wcagVersion,
+        wcagLevel
       });
 
       // Create new crawl record
@@ -19,6 +21,8 @@ const crawlController = {
         crawlRate,
         depthLimit,
         pageLimit,
+        wcagVersion,
+        wcagLevel,
         status: 'pending'
       });
       

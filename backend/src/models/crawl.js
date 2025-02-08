@@ -11,6 +11,16 @@ const crawlSchema = new mongoose.Schema({
     min: 1,
     max: 60
   },
+  wcagVersion: {
+    type: String,
+    enum: ['2.1', '2.2'],
+    default: '2.1'
+  },
+  wcagLevel: {
+    type: String,
+    enum: ['A', 'AA', 'AAA'],
+    default: 'AA'
+  },
   depthLimit: {
     type: Number,
     required: true,

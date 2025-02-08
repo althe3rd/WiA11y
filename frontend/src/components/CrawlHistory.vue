@@ -29,6 +29,7 @@
         <div class="crawl-details">
           <p>Speed: {{ getCrawlSpeed(crawl.crawlRate) }}</p>
           <p>Depth Limit: {{ getDepthLabel(crawl.depthLimit) }}</p>
+          <p>WCAG Specification: {{ getWcagSpec(crawl) }}</p>
           <p>Pages Scanned: {{ crawl.pagesScanned }}</p>
           <p>Violations Found: {{ crawl.violationsFound }}</p>
           <div class="violation-counts">
@@ -74,6 +75,9 @@ export default {
       } catch (error) {
         console.error('Failed to fetch crawls:', error);
       }
+    },
+    getWcagSpec(crawl) {
+      return `WCAG ${crawl.wcagVersion} Level ${crawl.wcagLevel}`;
     },
     getCrawlSpeed(rate) {
       if (rate <= 10) return 'Slow';
@@ -183,6 +187,15 @@ export default {
 .status.failed {
   background-color: #f44336;
   color: white;
+}
+
+.crawl-details p {
+  margin: 8px 0;
+  color: #666;
+}
+
+.crawl-details p strong {
+  color: #2c3e50;
 }
 
 .violation-counts {

@@ -132,8 +132,7 @@ class CrawlerService {
       console.log(`Successfully loaded ${url}`);
       
       // Run axe-core analysis
-      await driver.executeScript(axeCore.source);
-      const results = await driver.executeScript('return axe.run()');
+      const results = await this.runAccessibilityTests(driver, url, crawlId);
       await this.saveViolations(crawlId, url, results.violations);
 
       // Update progress before queueing new links
@@ -160,6 +159,28 @@ class CrawlerService {
       
     } catch (error) {
       console.error(`Error processing ${url}:`, error);
+    }
+  }
+
+  async runAccessibilityTests(driver, url, crawlId) {
+    try {
+      const crawl = await Crawl.findById(crawlId);
+      
+      // Configure axe based on WCAG options
+      const axeConfig = {
+        runOnly: {
+          type: 'tag',
+          values: [`wcag${crawl.wcagVersion.replace('.', '')}${crawl.wcagLevel.toLowerCase()}`]
+        }
+      };
+      
+      // Inject and run axe-core
+      await driver.executeScript(axeCore.source);
+      return await driver.executeScript(`return axe.run(document, ${JSON.stringify(axeConfig)})`);
+      
+    } catch (error) {
+      console.error(`Error running accessibility tests on ${url}:`, error);
+      throw error;
     }
   }
 

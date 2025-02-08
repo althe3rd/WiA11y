@@ -95,6 +95,56 @@
           <span class="help-text">(1-1000 pages)</span>
         </div>
       </div>
+      <div class="form-section">
+        <h3>WCAG Specification</h3>
+        <div class="wcag-options">
+          <div class="option-group">
+            <label>Version:</label>
+            <div class="radio-group">
+              <label>
+                <input 
+                  type="radio" 
+                  v-model="wcagVersion" 
+                  value="2.1"
+                > 2.1
+              </label>
+              <label>
+                <input 
+                  type="radio" 
+                  v-model="wcagVersion" 
+                  value="2.2"
+                > 2.2
+              </label>
+            </div>
+          </div>
+          <div class="option-group">
+            <label>Conformance Level:</label>
+            <div class="radio-group">
+              <label>
+                <input 
+                  type="radio" 
+                  v-model="wcagLevel" 
+                  value="A"
+                > A
+              </label>
+              <label>
+                <input 
+                  type="radio" 
+                  v-model="wcagLevel" 
+                  value="AA"
+                > AA
+              </label>
+              <label>
+                <input 
+                  type="radio" 
+                  v-model="wcagLevel" 
+                  value="AAA"
+                > AAA
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
       <button type="submit">Start Crawl</button>
     </form>
   </div>
@@ -112,7 +162,10 @@ export default {
       depthLimit: null,
       customDepthValue: 6,
       pageLimitType: null,
-      customPageLimit: 5
+      customPageLimit: 5,
+      wcagVersion: '2.1',
+      wcagLevel: 'AA',
+      presetPageLimit: '5'
     }
   },
   computed: {
@@ -136,6 +189,12 @@ export default {
       console.log('Custom page limit:', this.customPageLimit);
       console.log('Effective page limit:', limit);
       return limit;
+    },
+    wcagOptions() {
+      return {
+        version: this.wcagVersion,
+        level: this.wcagLevel
+      }
     }
   },
   methods: {
@@ -145,7 +204,9 @@ export default {
           depthLimit: this.depthLimit,
           customDepthValue: this.customDepthValue,
           pageLimitType: this.pageLimitType,
-          customPageLimit: this.customPageLimit
+          customPageLimit: this.customPageLimit,
+          wcagVersion: this.wcagVersion,
+          wcagLevel: this.wcagLevel
         });
 
         // Validate depth selection
@@ -174,7 +235,9 @@ export default {
           domain: this.domain,
           crawlRate: this.crawlRate,
           depthLimit: this.effectiveDepthLimit,
-          pageLimit: this.effectivePageLimit
+          pageLimit: this.effectivePageLimit,
+          wcagVersion: this.wcagVersion,
+          wcagLevel: this.wcagLevel
         };
         
         // Log the final computed values
@@ -338,5 +401,33 @@ button:hover {
 
 .unselected:focus-within {
   border-color: #4CAF50;
+}
+
+.wcag-options {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.option-group {
+  flex: 1;
+}
+
+.option-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.radio-group {
+  display: flex;
+  gap: 15px;
+}
+
+.radio-group label {
+  font-weight: normal;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 </style> 
