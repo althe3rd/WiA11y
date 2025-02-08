@@ -2,19 +2,19 @@
   <div class="dashboard">
     <h1>Web Accessibility Crawler</h1>
     <CrawlForm />
-    <CrawlList />
+    <CrawlHistory />
   </div>
 </template>
 
 <script>
 import CrawlForm from '../components/CrawlForm.vue'
-import CrawlList from '../components/CrawlList.vue'
+import CrawlHistory from '../components/CrawlHistory.vue'
 
 export default {
   name: 'Dashboard',
   components: {
     CrawlForm,
-    CrawlList
+    CrawlHistory
   }
 }
 </script> 

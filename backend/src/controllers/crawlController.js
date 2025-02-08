@@ -64,8 +64,8 @@ const crawlController = {
         return res.status(404).json({ error: 'Crawl not found' });
       }
       
-      if (!['pending', 'cancelled'].includes(crawl.status)) {
-        return res.status(400).json({ error: 'Only pending or cancelled crawls can be removed' });
+      if (!['completed', 'cancelled'].includes(crawl.status)) {
+        return res.status(400).json({ error: 'Only completed or cancelled crawls can be removed' });
       }
       
       await Crawl.findByIdAndDelete(id);
