@@ -1,0 +1,23 @@
+{
+  "name": "accessibility-crawler-backend",
+  "version": "1.0.0",
+  "description": "Backend for accessibility crawler",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "axe-core": "^4.8.4",
+    "axios": "^1.6.7",
+    "cheerio": "^1.0.0-rc.12",
+    "chromedriver": "^132.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "mongoose": "^8.1.3",
+    "selenium-webdriver": "^4.18.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}
