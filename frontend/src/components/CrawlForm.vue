@@ -37,6 +37,64 @@
           </label>
         </div>
       </div>
+      <div class="form-group">
+        <label>Crawl Depth:</label>
+        <div class="depth-selector" :class="{ 'unselected': !depthLimit }">
+          <label v-for="depth in [...Array(5)].map((_, i) => i + 1)" :key="depth">
+            <input 
+              type="radio" 
+              v-model="depthLimit" 
+              :value="String(depth)"
+            > {{ getDepthLabel(depth) }}
+          </label>
+          <label>
+            <input 
+              type="radio" 
+              v-model="depthLimit" 
+              value="custom"
+            > Custom
+          </label>
+        </div>
+        <div v-if="depthLimit === 'custom'" class="custom-depth">
+          <input 
+            type="number" 
+            v-model.number="customDepthValue"
+            min="1"
+            max="20"
+            required
+          >
+          <span class="help-text">(1-20 levels)</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Page Limit:</label>
+        <div class="page-limit-selector" :class="{ 'unselected': !pageLimitType }">
+          <label>
+            <input 
+              type="radio" 
+              v-model="pageLimitType" 
+              value="default"
+            > Default (100 pages)
+          </label>
+          <label>
+            <input 
+              type="radio" 
+              v-model="pageLimitType" 
+              value="custom"
+            > Custom
+          </label>
+        </div>
+        <div v-if="pageLimitType === 'custom'" class="custom-page-limit">
+          <input 
+            type="number" 
+            v-model.number="customPageLimit"
+            min="1"
+            max="1000"
+            required
+          >
+          <span class="help-text">(1-1000 pages)</span>
+        </div>
+      </div>
       <button type="submit">Start Crawl</button>
     </form>
   </div>
@@ -50,7 +108,11 @@ export default {
   data() {
     return {
       domain: '',
-      crawlSpeed: 'medium'
+      crawlSpeed: 'medium',
+      depthLimit: null,
+      customDepthValue: 6,
+      pageLimitType: null,
+      customPageLimit: 5
     }
   },
   computed: {
@@ -61,26 +123,93 @@ export default {
         fast: 60
       };
       return rates[this.crawlSpeed];
+    },
+    effectiveDepthLimit() {
+      const depth = this.depthLimit === 'custom' ? this.customDepthValue : parseInt(this.depthLimit, 10);
+      console.log('Depth selection:', this.depthLimit);
+      console.log('Effective depth:', depth);
+      return depth;
+    },
+    effectivePageLimit() {
+      const limit = this.pageLimitType === 'custom' ? parseInt(this.customPageLimit, 10) : 100;
+      console.log('Page limit type:', this.pageLimitType);
+      console.log('Custom page limit:', this.customPageLimit);
+      console.log('Effective page limit:', limit);
+      return limit;
     }
   },
   methods: {
     async submitCrawl() {
       try {
-        const response = await axios.post('http://localhost:3000/api/crawls', {
-          domain: this.domain,
-          crawlRate: this.crawlRate
+        console.log('Form state before submission:', {
+          depthLimit: this.depthLimit,
+          customDepthValue: this.customDepthValue,
+          pageLimitType: this.pageLimitType,
+          customPageLimit: this.customPageLimit
         });
+
+        // Validate depth selection
+        if (!this.depthLimit) {
+          console.error('Please select a depth limit');
+          return;
+        }
+        // Validate page limit selection
+        if (!this.pageLimitType) {
+          console.error('Please select a page limit type');
+          return;
+        }
+
+        // Validate custom depth
+        if (this.depthLimit === 'custom' && (!this.customDepthValue || this.customDepthValue < 1)) {
+          console.error('Invalid custom depth');
+          return;
+        }
+        // Validate custom page limit
+        if (this.pageLimitType === 'custom' && (!this.customPageLimit || this.customPageLimit < 1)) {
+          console.error('Invalid custom page limit');
+          return;
+        }
+
+        const payload = {
+          domain: this.domain,
+          crawlRate: this.crawlRate,
+          depthLimit: this.effectiveDepthLimit,
+          pageLimit: this.effectivePageLimit
+        };
         
-        console.log('Crawl created:', response.data);
-        this.$store.dispatch('crawls/createCrawl', {
-          domain: this.domain,
-          crawlRate: this.crawlRate
+        // Log the final computed values
+        console.log('Raw form values:', {
+          depthLimit: this.depthLimit,
+          effectiveDepthLimit: this.effectiveDepthLimit,
+          pageLimitType: this.pageLimitType,
+          effectivePageLimit: this.effectivePageLimit
         });
-        this.domain = '';
+        console.log('Submitting crawl with:', payload);
+
+        const response = await axios.post('http://localhost:3000/api/crawls', payload);
+        console.log('Crawl created:', response.data);
+        this.resetForm();
       } catch (error) {
         console.error('Failed to create crawl:', error);
-        // TODO: Add error handling UI
       }
+    },
+    resetForm() {
+      this.domain = '';
+      this.crawlSpeed = 'medium';
+      this.depthLimit = null;
+      this.pageLimitType = null;
+      this.customPageLimit = 5;
+      this.customDepthValue = 6;
+    },
+    getDepthLabel(depth) {
+      const labels = {
+        1: 'Homepage Only (Level 1)',
+        2: 'Shallow (2 Levels)',
+        3: 'Medium (3 Levels)',
+        4: 'Deep (4 Levels)',
+        5: 'Very Deep (5 Levels)'
+      };
+      return labels[depth] || `${depth} Levels`;
     }
   }
 }
@@ -138,5 +267,76 @@ button:hover {
 .radio-group input[type="radio"] {
   width: auto;
   cursor: pointer;
+}
+
+.depth-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-top: 5px;
+}
+
+.depth-selector label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.depth-selector input[type="radio"] {
+  width: auto;
+  cursor: pointer;
+}
+
+.custom-depth {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.custom-depth input {
+  width: 80px;
+  padding: 4px 8px;
+}
+
+.help-text {
+  color: #666;
+  font-size: 0.9em;
+}
+
+.page-limit-selector {
+  display: flex;
+  gap: 20px;
+  margin-top: 5px;
+}
+
+.page-limit-selector label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.custom-page-limit {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.custom-page-limit input {
+  width: 80px;
+  padding: 4px 8px;
+}
+
+.unselected {
+  border: 1px solid #ffcccb;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.unselected:focus-within {
+  border-color: #4CAF50;
 }
 </style> 

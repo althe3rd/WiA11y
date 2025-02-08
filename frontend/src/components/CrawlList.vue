@@ -8,10 +8,16 @@
       <div v-for="crawl in crawls" :key="crawl._id" class="crawl-item">
         <div class="crawl-header">
           <h3>{{ crawl.domain }}</h3>
-          <span :class="['status', crawl.status]">{{ crawl.status }}</span>
+          <div class="header-info">
+            <div class="score-badge" :class="getScoreClass(crawl.accessibilityScore)">
+              {{ Math.round(crawl.accessibilityScore) }}%
+            </div>
+            <span :class="['status', crawl.status]">{{ crawl.status }}</span>
+          </div>
         </div>
         <div class="crawl-details">
           <p>Speed: {{ getCrawlSpeedLabel(crawl.crawlRate) }}</p>
+          <p>Depth Limit: {{ getDepthLabel(crawl.depthLimit) }}</p>
           <p>Pages Scanned: {{ crawl.pagesScanned }}</p>
           <div class="violations-summary">
             <h4>Violations Found: {{ crawl.violationsFound }}</h4>
@@ -102,6 +108,22 @@ export default {
       if (rate <= 10) return 'Slow';
       if (rate <= 30) return 'Medium';
       return 'Fast';
+    },
+    getScoreClass(score) {
+      if (score >= 90) return 'excellent';
+      if (score >= 80) return 'good';
+      if (score >= 70) return 'fair';
+      return 'poor';
+    },
+    getDepthLabel(depth) {
+      const labels = {
+        1: 'Homepage Only (Level 1)',
+        2: 'Shallow (2 Levels)',
+        3: 'Medium (3 Levels)',
+        4: 'Deep (4 Levels)',
+        5: 'Very Deep (5 Levels)'
+      };
+      return labels[depth] || `${depth} Levels`;
     }
   },
   mounted() {
@@ -131,6 +153,39 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.score-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 1.1em;
+}
+
+.score-badge.excellent {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.score-badge.good {
+  background-color: #8BC34A;
+  color: white;
+}
+
+.score-badge.fair {
+  background-color: #FFC107;
+  color: black;
+}
+
+.score-badge.poor {
+  background-color: #F44336;
+  color: white;
 }
 
 .status {

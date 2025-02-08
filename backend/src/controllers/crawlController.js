@@ -4,21 +4,32 @@ const crawlerService = require('../services/crawlerServiceInstance');
 const crawlController = {
   async createCrawl(req, res) {
     try {
-      const { domain, crawlRate } = req.body;
+      const { domain, crawlRate, depthLimit, pageLimit } = req.body;
       
+      console.log('Received crawl request:', {
+        domain,
+        crawlRate,
+        depthLimit,
+        pageLimit
+      });
+
       // Create new crawl record
       const crawl = new Crawl({
         domain,
         crawlRate,
+        depthLimit,
+        pageLimit,
         status: 'pending'
       });
       
+      console.log('Creating crawl with:', crawl.toObject());
       await crawl.save();
       
       // Start crawling in background
-      crawlerService.crawlDomain(crawl._id, domain, crawlRate)
+      crawlerService.crawlDomain(crawl._id, domain, crawlRate, depthLimit, pageLimit)
         .catch(error => console.error('Crawl error:', error));
       
+      console.log('Crawl record created:', crawl.toObject());
       res.status(201).json(crawl);
     } catch (error) {
       console.error('Create crawl error:', error);
