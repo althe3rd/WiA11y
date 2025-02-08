@@ -64,7 +64,6 @@ const crawlSchema = new mongoose.Schema({
 
 // Add pre-save middleware to validate values
 crawlSchema.pre('save', function(next) {
-  console.log('Saving crawl with values:', this.toObject());
   next();
 });
 

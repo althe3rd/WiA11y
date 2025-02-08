@@ -9,22 +9,24 @@
   },
   "dependencies": {
     "axios": "^1.6.7",
+    "chart.js": "^4.4.7",
     "core-js": "^3.36.0",
     "vue": "^3.4.19",
+    "vue-chartjs": "^5.3.2",
     "vue-router": "^4.2.5",
     "vuex": "^4.1.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.23.9",
+    "@babel/eslint-parser": "^7.23.10",
+    "@babel/plugin-transform-runtime": "^7.23.9",
+    "@babel/preset-env": "^7.23.9",
+    "@babel/runtime": "^7.23.9",
     "@vue/cli-plugin-babel": "~5.0.8",
     "@vue/cli-plugin-eslint": "~5.0.8",
     "@vue/cli-service": "~5.0.8",
     "@vue/compiler-sfc": "^3.4.19",
-    "@babel/eslint-parser": "^7.23.10",
-    "@babel/core": "^7.23.9",
-    "@babel/preset-env": "^7.23.9",
-    "@babel/plugin-transform-runtime": "^7.23.9",
-    "@babel/runtime": "^7.23.9",
     "eslint": "^8.56.0",
     "eslint-plugin-vue": "^9.21.1"
   }
-} 
+}

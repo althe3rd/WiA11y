@@ -17,7 +17,20 @@ class CrawlerService {
 
   async updateCrawlStatus(crawlId, updates) {
     console.log(`Updating crawl ${crawlId} status:`, updates);
-    await Crawl.findByIdAndUpdate(crawlId, updates);
+    try {
+      await Crawl.findByIdAndUpdate(crawlId, updates);
+      const updatedCrawl = await Crawl.findById(crawlId);
+      console.log('Crawl updated successfully:', {
+        id: crawlId,
+        status: updatedCrawl.status,
+        pagesScanned: updatedCrawl.pagesScanned,
+        violationsFound: updatedCrawl.violationsFound,
+        accessibilityScore: updatedCrawl.accessibilityScore
+      });
+    } catch (error) {
+      console.error('Error updating crawl status:', error);
+      throw error;
+    }
   }
 
   async crawlDomain(crawlId, domain, crawlRate, depthLimit, pageLimit) {
@@ -168,16 +181,47 @@ class CrawlerService {
       
       // Configure axe based on WCAG options
       const axeConfig = {
-        runOnly: {
-          type: 'tag',
-          values: [`wcag${crawl.wcagVersion.replace('.', '')}${crawl.wcagLevel.toLowerCase()}`]
+        // Run all rules but filter by tags
+        tags: [
+          `wcag${crawl.wcagVersion.replace('.', '')}`,
+          `wcag${crawl.wcagVersion.replace('.', '')}${crawl.wcagLevel.toLowerCase()}`
+        ],
+        reporter: 'v2',
+        resultTypes: ['violations'],
+        // Ensure we're checking everything
+        rules: {
+          'color-contrast': { enabled: true },
+          'frame-title': { enabled: true },
+          'image-alt': { enabled: true },
+          'input-button-name': { enabled: true },
+          'input-image-alt': { enabled: true },
+          'label': { enabled: true },
+          'link-name': { enabled: true },
+          'list': { enabled: true },
+          'listitem': { enabled: true },
+          'button-name': { enabled: true }
         }
       };
       
       // Inject and run axe-core
       await driver.executeScript(axeCore.source);
-      return await driver.executeScript(`return axe.run(document, ${JSON.stringify(axeConfig)})`);
+      // Add a wait to ensure dynamic content is loaded
+      await driver.sleep(2000);
       
+      const results = await driver.executeScript(`return axe.run(document, ${JSON.stringify(axeConfig)})`);
+      console.log('Axe results for', url, JSON.stringify({
+        violations: results.violations.length,
+        violationDetails: results.violations.map(v => ({
+          id: v.id,
+          impact: v.impact,
+          description: v.description,
+          nodes: v.nodes.length
+        })),
+        passes: results.passes.length,
+        incomplete: results.incomplete.length,
+        inapplicable: results.inapplicable.length
+      }, null, 2));
+      return results;
     } catch (error) {
       console.error(`Error running accessibility tests on ${url}:`, error);
       throw error;
@@ -200,13 +244,42 @@ class CrawlerService {
       minor: 1
     };
     
-    let totalDeduction = 0;
+    let totalViolations = 0;
+    let weightedDeductions = 0;
+
+    if (!violations || violations.length === 0) {
+      console.log('No violations found for', url);
+      return;
+    }
 
     for (const violation of violations) {
-      violationsByImpact[violation.impact]++;
+      // Ensure violation has an impact level
+      if (!violation.impact) {
+        console.warn(`Violation without impact level:`, violation);
+        continue;
+      }
+
+      // Initialize counter if undefined
+      if (typeof violationsByImpact[violation.impact] === 'undefined') {
+        violationsByImpact[violation.impact] = 0;
+      }
+
+      // Count each instance of the violation (each affected node)
+      violationsByImpact[violation.impact] += violation.nodes.length;
       
-      // Calculate score deduction based on violation impact
-      totalDeduction += impactWeights[violation.impact];
+      // Count total violations and their weighted impact
+      totalViolations += violation.nodes.length;
+      weightedDeductions += violation.nodes.length * impactWeights[violation.impact];
+
+      console.log(`Violation: ${violation.id}`, {
+        impact: violation.impact,
+        description: violation.description,
+        affectedNodes: violation.nodes.length,
+        nodeDetails: violation.nodes.map(node => ({
+          html: node.html.substring(0, 100) + (node.html.length > 100 ? '...' : ''),
+          target: node.target
+        }))
+      });
 
       await Violation.create({
         crawlId,
@@ -223,8 +296,9 @@ class CrawlerService {
       });
     }
 
-    // Calculate page score (0-100)
-    const pageScore = Math.max(0, 100 - (totalDeduction * 2));
+    // Calculate page score (0-100) based on number and severity of violations
+    const baseDeduction = weightedDeductions * 2;
+    const pageScore = Math.max(0, Math.min(100, 100 - baseDeduction));
     
     // Get current crawl state
     const crawl = await Crawl.findById(crawlId);
@@ -234,9 +308,19 @@ class CrawlerService {
     const currentTotalScore = crawl.accessibilityScore * crawl.pagesScanned;
     const newAverageScore = (currentTotalScore + pageScore) / newPagesScanned;
 
+    console.log('Page accessibility score calculation:', {
+      url,
+      totalViolations,
+      weightedDeductions,
+      baseDeduction,
+      pageScore,
+      newAverageScore,
+      violationsByImpact
+    });
+
     await this.updateCrawlStatus(crawlId, {
       $inc: {
-        violationsFound: violations.length,
+        violationsFound: totalViolations,
         'violationsByImpact.critical': violationsByImpact.critical,
         'violationsByImpact.serious': violationsByImpact.serious,
         'violationsByImpact.moderate': violationsByImpact.moderate,

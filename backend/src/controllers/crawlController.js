@@ -27,11 +27,26 @@ const crawlController = {
       });
       
       console.log('Creating crawl with:', crawl.toObject());
-      await crawl.save();
+      try {
+        await crawl.save();
+        console.log('Crawl saved successfully:', crawl._id);
+      } catch (saveError) {
+        console.error('Error saving crawl:', saveError);
+        throw saveError;
+      }
       
       // Start crawling in background
       crawlerService.crawlDomain(crawl._id, domain, crawlRate, depthLimit, pageLimit)
-        .catch(error => console.error('Crawl error:', error));
+        .catch(error => {
+          console.error('Crawl error:', error);
+          // Update crawl status to failed if crawl errors out
+          Crawl.findByIdAndUpdate(crawl._id, { 
+            status: 'failed',
+            error: error.message
+          }).catch(updateError => {
+            console.error('Error updating failed crawl status:', updateError);
+          });
+        });
       
       console.log('Crawl record created:', crawl.toObject());
       res.status(201).json(crawl);
