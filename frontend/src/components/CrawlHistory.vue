@@ -100,6 +100,16 @@ import LoadingSpinner from './LoadingSpinner.vue';
 
 export default {
   name: 'CrawlHistory',
+  props: {
+    selectedTeam: {
+      type: String,
+      default: ''
+    },
+    selectedDateRange: {
+      type: String,
+      default: 'all'
+    }
+  },
   components: {
     AccessibilityTrendGraph,
     LoadingSpinner
@@ -113,8 +123,41 @@ export default {
   },
   computed: {
     groupedCrawls() {
+      // Filter crawls based on selected team and date range
+      let filtered = this.crawls;
+      
+      // Filter by team if selected
+      if (this.selectedTeam) {
+        filtered = filtered.filter(crawl => {
+          if (!crawl.team) return false;
+          try {
+            const teamId = typeof crawl.team === 'object' ? crawl.team._id : crawl.team;
+            return teamId?.toString() === this.selectedTeam?.toString();
+          } catch (error) {
+            console.error('Error comparing team IDs:', error);
+            return false;
+          }
+        });
+      }
+      
+      // Filter by date range
+      if (this.selectedDateRange !== 'all') {
+        const now = new Date();
+        const ranges = {
+          week: 7,
+          month: 30,
+          quarter: 90
+        };
+        const days = ranges[this.selectedDateRange];
+        const cutoff = new Date(now.setDate(now.getDate() - days));
+        
+        filtered = filtered.filter(crawl => 
+          new Date(crawl.createdAt) >= cutoff
+        );
+      }
+
       // First group by domain
-      const grouped = this.crawls.reduce((acc, crawl) => {
+      const grouped = filtered.reduce((acc, crawl) => {
         if (!acc[crawl.domain]) {
           acc[crawl.domain] = {};
         }

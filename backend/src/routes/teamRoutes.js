@@ -3,6 +3,7 @@ const router = express.Router();
 const teamController = require('../controllers/teamController');
 const { auth, isTeamAdmin } = require('../middleware/auth');
 const Team = require('../models/team');
+const Crawl = require('../models/crawl');
 
 console.log('Setting up team routes');
 
@@ -45,6 +46,41 @@ router.get('/', auth, async (req, res) => {
   } catch (error) {
     console.error('Error fetching teams:', error);
     res.status(500).json({ error: 'Failed to fetch teams' });
+  }
+});
+
+// Get all crawls for a team
+router.get('/:teamId/crawls', auth, async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    
+    // Verify user has access to this team
+    const team = await Team.findById(teamId);
+    if (!team) {
+      return res.status(404).json({ error: 'Team not found' });
+    }
+    
+    // Check if user has access to team
+    const hasAccess = ['network_admin', 'admin'].includes(req.user.role) ||
+      team.members.includes(req.user._id) ||
+      team.teamAdmins.includes(req.user._id);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Not authorized to view team crawls' });
+    }
+    
+    // Fetch all crawls for this team
+    const crawls = await Crawl.find({ team: teamId })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: 'violations',
+        select: 'id impact description'
+      });
+    
+    res.json(crawls);
+  } catch (error) {
+    console.error('Error fetching team crawls:', error);
+    res.status(500).json({ error: 'Failed to fetch team crawls' });
   }
 });
 
