@@ -1,5 +1,5 @@
-require('dotenv').config();
 const express = require('express');
+const dotenv = require('dotenv');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const userRoutes = require('./routes/userRoutes');
@@ -9,6 +9,13 @@ const violationRoutes = require('./routes/violationRoutes');
 const proxyRoutes = require('./routes/proxyRoutes');
 
 const app = express();
+
+// Load environment variables based on NODE_ENV
+const envFile = process.env.NODE_ENV === 'production' 
+  ? '.env.production' 
+  : '.env.development';
+
+dotenv.config({ path: envFile });
 
 // Middleware
 app.use(cors());
