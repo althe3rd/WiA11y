@@ -34,6 +34,14 @@ class CrawlerService {
   }
 
   async crawlDomain(crawlId, domain, crawlRate, depthLimit, pageLimit) {
+    console.log('crawlDomain called with:', {
+      crawlId,
+      domain,
+      crawlRate,
+      depthLimit,
+      pageLimit
+    });
+
     console.log(`Starting crawl for ${domain} with ID ${crawlId}`);
     console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
     this.currentDomain = domain;
@@ -93,6 +101,16 @@ class CrawlerService {
   async processUrl(crawlId, url, driver, crawlRate) {
     console.log(`Processing URL: ${url}`);
     const job = this.activeJobs.get(crawlId);
+    
+    // Check if the crawl has been cancelled
+    const crawl = await Crawl.findById(crawlId);
+    if (crawl.status === 'cancelled') {
+      console.log(`Crawl ${crawlId} has been cancelled, stopping processing`);
+      job.isRunning = false;
+      this.queue = [];
+      return;
+    }
+
     if (!job || !job.isRunning) {
       console.log(`Job ${crawlId} is no longer running, skipping processing`);
       this.queue = [];
@@ -100,7 +118,6 @@ class CrawlerService {
     }
 
     const currentDepth = this.urlDepths.get(url) || 1;
-    const crawl = await Crawl.findById(crawlId);
     
     console.log(`Processing URL at depth ${currentDepth}/${crawl.depthLimit}, pages scanned: ${crawl.pagesScanned}/${crawl.pageLimit}`);
 
@@ -371,34 +388,48 @@ class CrawlerService {
     console.log(`Attempting to cancel crawl ${crawlId}`);
     console.log('Active jobs:', Array.from(this.activeJobs.keys()));
     const job = this.activeJobs.get(crawlId);
+    
+    // Update the crawl status first to prevent new processing
+    await this.updateCrawlStatus(crawlId, { 
+      status: 'cancelled',
+      completedAt: new Date()
+    });
+
     if (job) {
       console.log('Found active job, cancelling...');
       job.isRunning = false;
+      // Clear the queue immediately
       this.queue = [];
       try {
-        const windows = await job.driver.getAllWindowHandles();
-        for (const handle of windows) {
-          await job.driver.switchTo().window(handle);
-          await job.driver.close();
+        // Stop any ongoing processing
+        if (job.driver) {
+          try {
+            // Attempt to cancel any pending navigation
+            await job.driver.executeScript('window.stop()');
+          } catch (e) {
+            console.log('Error stopping page load:', e);
+          }
+
+          // Force close any open pages
+          const windows = await job.driver.getAllWindowHandles();
+          for (const handle of windows) {
+            await job.driver.switchTo().window(handle);
+            await job.driver.close();
+          }
+          // Quit the browser
+          await job.driver.quit();
         }
-        await job.driver.quit();
       } catch (error) {
         console.error('Error closing browser:', error);
       }
+      
+      // Clean up all tracking data
       this.activeJobs.delete(crawlId);
       this.visitedUrlsByCrawl.delete(crawlId);
       this.urlDepths.clear();
-      await this.updateCrawlStatus(crawlId, { 
-        status: 'cancelled',
-        completedAt: new Date()
-      });
+      console.log('Crawl cancelled successfully');
     } else {
       console.log('No active job found for this ID');
-      // Update status even if job not found in memory
-      await this.updateCrawlStatus(crawlId, { 
-        status: 'cancelled',
-        completedAt: new Date()
-      });
     }
   }
 
@@ -456,6 +487,14 @@ class CrawlerService {
   async processQueue(crawlId, driver, crawlRate) {
     console.log(`Starting queue processing with ${this.queue.length} URLs`);
     while (this.queue.length > 0) {
+      // Check if the crawl has been cancelled
+      const crawl = await Crawl.findById(crawlId);
+      if (crawl.status === 'cancelled') {
+        console.log(`Crawl ${crawlId} has been cancelled, clearing queue`);
+        this.queue = [];
+        break;
+      }
+
       if (!this.activeJobs.get(crawlId)?.isRunning) {
         console.log(`Job ${crawlId} was cancelled, stopping queue processing`);
         this.queue = [];

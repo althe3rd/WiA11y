@@ -1,9 +1,40 @@
 const mongoose = require('mongoose');
 
 const crawlSchema = new mongoose.Schema({
+  url: {
+    type: String,
+    required: true
+  },
   domain: {
     type: String,
+    required: true
+  },
+  team: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team',
+    required: true
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'in_progress', 'completed', 'failed', 'cancelled'],
+    default: 'pending'
+  },
+  depthLimit: {
+    type: Number,
     required: true,
+    min: 1,
+    max: 5
+  },
+  pageLimit: {
+    type: Number,
+    required: true,
+    min: 1,
+    max: 1000
   },
   crawlRate: {
     type: Number,
@@ -13,33 +44,14 @@ const crawlSchema = new mongoose.Schema({
   },
   wcagVersion: {
     type: String,
-    enum: ['2.1', '2.2'],
-    default: '2.1'
+    required: true,
+    enum: ['2.0', '2.1', '2.2']
   },
   wcagLevel: {
     type: String,
-    enum: ['A', 'AA', 'AAA'],
-    default: 'AA'
-  },
-  depthLimit: {
-    type: Number,
     required: true,
-    min: 1,
-    max: 20,
+    enum: ['A', 'AA', 'AAA']
   },
-  pageLimit: {
-    type: Number,
-    required: true,
-    min: 1,
-    max: 1000,
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'in_progress', 'completed', 'failed', 'cancelled'],
-    default: 'pending'
-  },
-  startedAt: Date,
-  completedAt: Date,
   pagesScanned: {
     type: Number,
     default: 0
@@ -56,8 +68,10 @@ const crawlSchema = new mongoose.Schema({
   },
   accessibilityScore: {
     type: Number,
-    default: 100  // Start at 100% and deduct based on violations
-  }
+    default: 0
+  },
+  startedAt: Date,
+  completedAt: Date
 }, {
   timestamps: true
 });

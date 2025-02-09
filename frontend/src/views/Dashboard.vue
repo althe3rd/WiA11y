@@ -1,6 +1,6 @@
 <template>
   <div class="dashboard">
-    <h1>Web Accessibility Crawler</h1>
+    <h1>Web Accessibility Scanner</h1>
     <CrawlForm />
     <CrawlHistory />
   </div>
@@ -17,4 +17,10 @@ export default {
     CrawlHistory
   }
 }
-</script> 
+</script>
+
+<style scoped>
+.dashboard {
+  padding: 20px;
+}
+</style> 

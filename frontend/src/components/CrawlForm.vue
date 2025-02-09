@@ -1,300 +1,190 @@
 <template>
   <div class="crawl-form">
+    <h2>New Accessibility Scan</h2>
     <form @submit.prevent="submitCrawl">
       <div class="form-group">
-        <label for="domain">Domain</label>
+        <label for="url">URL to Scan</label>
         <input 
-          v-model="domain" 
           type="text" 
-          id="domain" 
-          placeholder="example.com"
+          id="url" 
+          v-model="formData.url" 
           required
+          placeholder="example.com"
         >
       </div>
-      <div class="form-group crawl-speed">
-        <label>Crawl Speed:</label>
-        <div class="radio-group">
-          <label>
-            <input 
-              type="radio" 
-              v-model="crawlSpeed" 
-              value="slow"
-            > Slow (10 req/min)
-          </label>
-          <label>
-            <input 
-              type="radio" 
-              v-model="crawlSpeed" 
-              value="medium"
-            > Medium (30 req/min)
-          </label>
-          <label>
-            <input 
-              type="radio" 
-              v-model="crawlSpeed" 
-              value="fast"
-            > Fast (60 req/min)
-          </label>
-        </div>
-      </div>
+
       <div class="form-group">
-        <label>Crawl Depth:</label>
-        <div class="depth-selector" :class="{ 'unselected': !depthLimit }">
-          <label v-for="depth in [...Array(5)].map((_, i) => i + 1)" :key="depth">
-            <input 
-              type="radio" 
-              v-model="depthLimit" 
-              :value="String(depth)"
-            > {{ getDepthLabel(depth) }}
-          </label>
-          <label>
-            <input 
-              type="radio" 
-              v-model="depthLimit" 
-              value="custom"
-            > Custom
-          </label>
-        </div>
-        <div v-if="depthLimit === 'custom'" class="custom-depth">
-          <input 
-            type="number" 
-            v-model.number="customDepthValue"
-            min="1"
-            max="20"
-            required
-          >
-          <span class="help-text">(1-20 levels)</span>
-        </div>
+        <label for="team">Team</label>
+        <select id="team" v-model="formData.team" required>
+          <option value="">Select a team</option>
+          <option v-for="team in teams" :key="team._id" :value="team._id">
+            {{ team.name }}
+          </option>
+        </select>
       </div>
+
       <div class="form-group">
-        <label>Page Limit:</label>
-        <div class="page-limit-selector" :class="{ 'unselected': !pageLimitType }">
-          <label>
-            <input 
-              type="radio" 
-              v-model="pageLimitType" 
-              value="default"
-            > Default (100 pages)
-          </label>
-          <label>
-            <input 
-              type="radio" 
-              v-model="pageLimitType" 
-              value="custom"
-            > Custom
-          </label>
-        </div>
-        <div v-if="pageLimitType === 'custom'" class="custom-page-limit">
-          <input 
-            type="number" 
-            v-model.number="customPageLimit"
-            min="1"
-            max="1000"
-            required
-          >
-          <span class="help-text">(1-1000 pages)</span>
-        </div>
+        <label for="depthLimit">Scan Depth</label>
+        <select id="depthLimit" v-model="formData.depthLimit" required>
+          <option value="1">Homepage Only (Level 1)</option>
+          <option value="2">Shallow (2 Levels)</option>
+          <option value="3">Medium (3 Levels)</option>
+          <option value="4">Deep (4 Levels)</option>
+          <option value="5">Very Deep (5 Levels)</option>
+        </select>
       </div>
-      <div class="form-section">
-        <h3>WCAG Specification</h3>
-        <div class="wcag-options">
-          <div class="option-group">
-            <label>Version:</label>
-            <div class="radio-group">
-              <label>
-                <input 
-                  type="radio" 
-                  v-model="wcagVersion" 
-                  value="2.1"
-                > 2.1
-              </label>
-              <label>
-                <input 
-                  type="radio" 
-                  v-model="wcagVersion" 
-                  value="2.2"
-                > 2.2
-              </label>
-            </div>
-          </div>
-          <div class="option-group">
-            <label>Conformance Level:</label>
-            <div class="radio-group">
-              <label>
-                <input 
-                  type="radio" 
-                  v-model="wcagLevel" 
-                  value="A"
-                > A
-              </label>
-              <label>
-                <input 
-                  type="radio" 
-                  v-model="wcagLevel" 
-                  value="AA"
-                > AA
-              </label>
-              <label>
-                <input 
-                  type="radio" 
-                  v-model="wcagLevel" 
-                  value="AAA"
-                > AAA
-              </label>
-            </div>
-          </div>
-        </div>
+
+      <div class="form-group">
+        <label for="pageLimit">Maximum Pages</label>
+        <input 
+          type="number" 
+          id="pageLimit" 
+          v-model="formData.pageLimit" 
+          required
+          min="1"
+          max="1000"
+        >
       </div>
-      <button type="submit">Start Crawl</button>
+
+      <div class="form-group">
+        <label for="crawlRate">Crawl Speed</label>
+        <select id="crawlRate" v-model="formData.crawlRate" required>
+          <option value="10">Slow (10 pages/min)</option>
+          <option value="30">Medium (30 pages/min)</option>
+          <option value="60">Fast (60 pages/min)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="wcagVersion">WCAG Version</label>
+        <select id="wcagVersion" v-model="formData.wcagVersion" required>
+          <option value="2.0">WCAG 2.0</option>
+          <option value="2.1">WCAG 2.1</option>
+          <option value="2.2">WCAG 2.2</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="wcagLevel">Conformance Level</label>
+        <select id="wcagLevel" v-model="formData.wcagLevel" required>
+          <option value="A">Level A</option>
+          <option value="AA">Level AA</option>
+          <option value="AAA">Level AAA</option>
+        </select>
+      </div>
+
+      <button type="submit" :disabled="isSubmitting">
+        {{ isSubmitting ? 'Starting Scan...' : 'Start Scan' }}
+      </button>
     </form>
   </div>
 </template>
 
 <script>
-import axios from 'axios';
+import { ref, onMounted } from 'vue';
+import { useStore } from 'vuex';
 
 export default {
   name: 'CrawlForm',
-  data() {
-    return {
-      domain: '',
-      crawlSpeed: 'medium',
-      depthLimit: null,
-      customDepthValue: 6,
-      pageLimitType: null,
-      customPageLimit: 5,
+  setup() {
+    const store = useStore();
+    const teams = ref([]);
+    const isSubmitting = ref(false);
+    const formData = ref({
+      url: '',
+      team: '',
+      depthLimit: '2',
+      pageLimit: 100,
+      crawlRate: '30',
       wcagVersion: '2.1',
-      wcagLevel: 'AA',
-      presetPageLimit: '5'
-    }
-  },
-  computed: {
-    crawlRate() {
-      const rates = {
-        slow: 10,
-        medium: 30,
-        fast: 60
-      };
-      return rates[this.crawlSpeed];
-    },
-    effectiveDepthLimit() {
-      const depth = this.depthLimit === 'custom' ? this.customDepthValue : parseInt(this.depthLimit, 10);
-      console.log('Depth selection:', this.depthLimit);
-      console.log('Effective depth:', depth);
-      return depth;
-    },
-    effectivePageLimit() {
-      const limit = this.pageLimitType === 'custom' ? parseInt(this.customPageLimit, 10) : 100;
-      console.log('Page limit type:', this.pageLimitType);
-      console.log('Custom page limit:', this.customPageLimit);
-      console.log('Effective page limit:', limit);
-      return limit;
-    },
-    wcagOptions() {
-      return {
-        version: this.wcagVersion,
-        level: this.wcagLevel
-      }
-    }
-  },
-  methods: {
-    async submitCrawl() {
+      wcagLevel: 'AA'
+    });
+
+    const fetchTeams = async () => {
       try {
-        console.log('Form state before submission:', {
-          depthLimit: this.depthLimit,
-          customDepthValue: this.customDepthValue,
-          pageLimitType: this.pageLimitType,
-          customPageLimit: this.customPageLimit,
-          wcagVersion: this.wcagVersion,
-          wcagLevel: this.wcagLevel
-        });
+        await store.dispatch('fetchTeams');
+        teams.value = store.state.teams;
+      } catch (error) {
+        console.error('Failed to fetch teams:', error);
+      }
+    };
 
-        // Validate depth selection
-        if (!this.depthLimit) {
-          console.error('Please select a depth limit');
-          return;
+    const submitCrawl = async () => {
+      try {
+        isSubmitting.value = true;
+        // Add protocol if missing
+        let url = formData.value.url;
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          url = 'https://' + url;
         }
-        // Validate page limit selection
-        if (!this.pageLimitType) {
-          console.error('Please select a page limit type');
-          return;
-        }
-
-        // Validate custom depth
-        if (this.depthLimit === 'custom' && (!this.customDepthValue || this.customDepthValue < 1)) {
-          console.error('Invalid custom depth');
-          return;
-        }
-        // Validate custom page limit
-        if (this.pageLimitType === 'custom' && (!this.customPageLimit || this.customPageLimit < 1)) {
-          console.error('Invalid custom page limit');
-          return;
-        }
-
-        const payload = {
-          domain: this.domain,
-          crawlRate: this.crawlRate,
-          depthLimit: this.effectiveDepthLimit,
-          pageLimit: this.effectivePageLimit,
-          wcagVersion: this.wcagVersion,
-          wcagLevel: this.wcagLevel
+        const domain = new URL(url).hostname;
+        
+        const crawlData = {
+          url,
+          domain,
+          team: formData.value.team,
+          depthLimit: parseInt(formData.value.depthLimit),
+          pageLimit: parseInt(formData.value.pageLimit),
+          crawlRate: parseInt(formData.value.crawlRate),
+          wcagVersion: formData.value.wcagVersion,
+          wcagLevel: formData.value.wcagLevel
         };
         
-        // Log the final computed values
-        console.log('Raw form values:', {
-          depthLimit: this.depthLimit,
-          effectiveDepthLimit: this.effectiveDepthLimit,
-          pageLimitType: this.pageLimitType,
-          effectivePageLimit: this.effectivePageLimit
-        });
-        console.log('Submitting crawl with:', payload);
+        console.log('Submitting crawl with data:', crawlData); // Debug log
+        
+        await store.dispatch('crawls/createCrawl', crawlData);
 
-        const response = await axios.post('http://localhost:3000/api/crawls', payload);
-        console.log('Crawl created:', response.data);
-        this.resetForm();
+        // Reset form
+        formData.value = {
+          url: '',
+          team: '',
+          depthLimit: '2',
+          pageLimit: 100,
+          crawlRate: '30',
+          wcagVersion: '2.1',
+          wcagLevel: 'AA'
+        };
       } catch (error) {
         console.error('Failed to create crawl:', error);
+        alert(error.message || error.error || 'Failed to create crawl');
+      } finally {
+        isSubmitting.value = false;
       }
-    },
-    resetForm() {
-      this.domain = '';
-      this.crawlSpeed = 'medium';
-      this.depthLimit = null;
-      this.pageLimitType = null;
-      this.customPageLimit = 5;
-      this.customDepthValue = 6;
-    },
-    getDepthLabel(depth) {
-      const labels = {
-        1: 'Homepage Only (Level 1)',
-        2: 'Shallow (2 Levels)',
-        3: 'Medium (3 Levels)',
-        4: 'Deep (4 Levels)',
-        5: 'Very Deep (5 Levels)'
-      };
-      return labels[depth] || `${depth} Levels`;
-    }
+    };
+
+    onMounted(fetchTeams);
+
+    return {
+      formData,
+      teams,
+      isSubmitting,
+      submitCrawl
+    };
   }
-}
+};
 </script>
 
 <style scoped>
 .crawl-form {
-  max-width: 500px;
+  max-width: 600px;
   margin: 0 auto;
   padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .form-group {
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 }
 
 label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
+  font-weight: 500;
 }
 
-input {
+input, select {
   width: 100%;
   padding: 8px;
   border: 1px solid #ddd;
@@ -302,132 +192,17 @@ input {
 }
 
 button {
+  width: 100%;
+  padding: 12px;
   background-color: #4CAF50;
   color: white;
-  padding: 10px 20px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
 }
 
-button:hover {
-  background-color: #45a049;
-}
-
-.radio-group {
-  display: flex;
-  gap: 20px;
-  margin-top: 5px;
-}
-
-.radio-group label {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-}
-
-.radio-group input[type="radio"] {
-  width: auto;
-  cursor: pointer;
-}
-
-.depth-selector {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  margin-top: 5px;
-}
-
-.depth-selector label {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-}
-
-.depth-selector input[type="radio"] {
-  width: auto;
-  cursor: pointer;
-}
-
-.custom-depth {
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.custom-depth input {
-  width: 80px;
-  padding: 4px 8px;
-}
-
-.help-text {
-  color: #666;
-  font-size: 0.9em;
-}
-
-.page-limit-selector {
-  display: flex;
-  gap: 20px;
-  margin-top: 5px;
-}
-
-.page-limit-selector label {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-}
-
-.custom-page-limit {
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.custom-page-limit input {
-  width: 80px;
-  padding: 4px 8px;
-}
-
-.unselected {
-  border: 1px solid #ffcccb;
-  padding: 10px;
-  border-radius: 4px;
-}
-
-.unselected:focus-within {
-  border-color: #4CAF50;
-}
-
-.wcag-options {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.option-group {
-  flex: 1;
-}
-
-.option-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: bold;
-}
-
-.radio-group {
-  display: flex;
-  gap: 15px;
-}
-
-.radio-group label {
-  font-weight: normal;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
 }
 </style> 

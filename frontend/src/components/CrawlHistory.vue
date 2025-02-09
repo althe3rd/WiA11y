@@ -35,6 +35,11 @@
                     {{ getScoreDifference(crawl.accessibilityScore, crawls[index + 1].accessibilityScore) }}
                   </span>
                   <span :class="['status', crawl.status]">{{ crawl.status }}</span>
+                  <LoadingSpinner 
+                    v-if="crawl.status === 'in_progress'"
+                    text="Scanning..."
+                    class="crawl-spinner"
+                  />
                   <div class="crawl-actions">
                     <button 
                       v-if="crawl.status === 'in_progress'" 
@@ -44,7 +49,7 @@
                       Cancel
                     </button>
                     <button 
-                      v-if="crawl.status === 'completed' || crawl.status === 'cancelled'"
+                      v-if="['completed', 'cancelled', 'pending', 'failed'].includes(crawl.status)"
                       @click="removeCrawl(crawl._id)"
                       class="remove-button"
                     >
@@ -89,11 +94,13 @@
 <script>
 import axios from 'axios';
 import AccessibilityTrendGraph from './AccessibilityTrendGraph.vue';
+import LoadingSpinner from './LoadingSpinner.vue';
 
 export default {
   name: 'CrawlHistory',
   components: {
-    AccessibilityTrendGraph
+    AccessibilityTrendGraph,
+    LoadingSpinner
   },
   data() {
     return {
@@ -150,7 +157,12 @@ export default {
     },
     async fetchCrawls() {
       try {
-        const response = await axios.get('http://localhost:3000/api/crawls');
+        const token = localStorage.getItem('token');
+        const response = await axios.get('http://localhost:3000/api/crawls', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         this.crawls = response.data;
       } catch (error) {
         console.error('Failed to fetch crawls:', error);
@@ -176,19 +188,41 @@ export default {
     },
     async removeCrawl(crawlId) {
       try {
-        await axios.delete(`http://localhost:3000/api/crawls/${crawlId}`);
+        if (!confirm('Are you sure you want to delete this crawl?')) {
+          return;
+        }
+        const token = localStorage.getItem('token');
+        await axios.delete(`http://localhost:3000/api/crawls/${crawlId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         // Remove from local state
-        this.crawls = this.crawls.filter(crawl => crawl._id !== crawlId);
+        this.crawls = this.crawls.filter(c => c._id !== crawlId);
       } catch (error) {
         console.error('Failed to remove crawl:', error);
+        alert(error.response?.data?.error || 'Failed to remove crawl');
       }
     },
     async cancelCrawl(crawlId) {
       try {
-        await axios.post(`http://localhost:3000/api/crawls/${crawlId}/cancel`);
-        await this.fetchCrawls(); // Refresh the list
+        if (!confirm('Are you sure you want to cancel this crawl?')) {
+          return;
+        }
+        const token = localStorage.getItem('token');
+        const response = await axios.post(`http://localhost:3000/api/crawls/${crawlId}/cancel`, {}, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        // Update local state
+        const index = this.crawls.findIndex(c => c._id === crawlId);
+        if (index !== -1) {
+          this.crawls[index] = response.data;
+        }
       } catch (error) {
         console.error('Failed to cancel crawl:', error);
+        alert(error.response?.data?.error || 'Failed to cancel crawl');
       }
     },
     getScoreDifference(currentScore, previousScore) {
@@ -338,6 +372,11 @@ export default {
 
 .status.failed {
   background-color: #f44336;
+  color: white;
+}
+
+.status.pending {
+  background-color: #ff9800;
   color: white;
 }
 
@@ -531,5 +570,20 @@ export default {
 
 .wcag-group:last-child {
   margin-bottom: 0;
+}
+
+.crawl-spinner {
+  margin-left: 10px;
+}
+
+/* Make the spinner smaller in the crawl list */
+.crawl-spinner :deep(.spinner) {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
+}
+
+.crawl-spinner :deep(.spinner-text) {
+  font-size: 0.8em;
 }
 </style> 
