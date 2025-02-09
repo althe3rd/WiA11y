@@ -16,8 +16,17 @@ const envFile = process.env.NODE_ENV === 'production'
   ? '.env.production' 
   : '.env.development';
 console.log('Loading environment from:', envFile);
+console.log('Current directory:', process.cwd());
+console.log('Env file exists:', require('fs').existsSync(envFile));
 
-dotenv.config({ path: envFile });
+require('dotenv').config({
+  path: require('path').resolve(__dirname, '..', envFile)
+});
+
+// Force set the MongoDB URI if it's not being loaded correctly
+if (process.env.NODE_ENV === 'production') {
+  process.env.MONGODB_URI = 'mongodb+srv://wia11y_admin:ZZyTkJrL34javvag@wia11y.wpyxo.mongodb.net/?retryWrites=true&w=majority&appName=WiA11y';
+}
 
 // Debug environment after loading
 console.log('Environment check:');
@@ -27,6 +36,7 @@ console.log('- MONGODB_URI type:', typeof process.env.MONGODB_URI);
 console.log('- MONGODB_URI starts with:', process.env.MONGODB_URI?.substring(0, 20) + '...');
 console.log('- MONGODB_URI includes "mongodb+srv":', process.env.MONGODB_URI?.includes('mongodb+srv'));
 console.log('- MONGODB_URI length:', process.env.MONGODB_URI?.length);
+console.log('- Full env file path:', require('path').resolve(envFile));
 
 // Middleware
 app.use(cors());
@@ -73,7 +83,10 @@ app.use((err, req, res, next) => {
 
 // Connect to MongoDB
 console.log('Attempting to connect to MongoDB Atlas:', process.env.MONGODB_URI);
-const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/accessibility-scanner';
+const mongoUri = process.env.MONGODB_URI;
+if (!mongoUri) {
+  throw new Error('MONGODB_URI is not defined');
+}
 console.log('Using MongoDB URI:', mongoUri.substring(0, 20) + '...');
 
 mongoose.connect(mongoUri, {
