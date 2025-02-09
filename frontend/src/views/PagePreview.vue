@@ -85,7 +85,7 @@ export default {
 
     const proxyUrl = computed(() => {
       const tokenValue = token.value.startsWith('Bearer ') ? token.value.slice(7) : token.value;
-      return `http://localhost:3000/api/proxy/${encodeURIComponent(props.url)}?token=${tokenValue}`
+      return `${process.env.VUE_APP_API_URL}/api/proxy/${encodeURIComponent(props.url)}?token=${tokenValue}`
     })
 
     const fetchViolations = async () => {

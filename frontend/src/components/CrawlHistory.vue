@@ -239,7 +239,7 @@ export default {
     async fetchCrawls() {
       try {
         const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:3000/api/crawls', {
+        const response = await axios.get(`${process.env.VUE_APP_API_URL}/api/crawls`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -273,7 +273,7 @@ export default {
           return;
         }
         const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:3000/api/crawls/${crawlId}`, {
+        await axios.delete(`${process.env.VUE_APP_API_URL}/api/crawls/${crawlId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -291,7 +291,7 @@ export default {
           return;
         }
         const token = localStorage.getItem('token');
-        const response = await axios.post(`http://localhost:3000/api/crawls/${crawlId}/cancel`, {}, {
+        const response = await axios.post(`${process.env.VUE_APP_API_URL}/api/crawls/${crawlId}/cancel`, {}, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

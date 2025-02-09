@@ -29,7 +29,7 @@ export default {
     const fetchCrawl = async () => {
       try {
         const token = localStorage.getItem('token')
-        const { data } = await axios.get(`http://localhost:3000/api/crawls/${route.params.id}`, {
+        const { data } = await axios.get(`${process.env.VUE_APP_API_URL}/api/crawls/${route.params.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

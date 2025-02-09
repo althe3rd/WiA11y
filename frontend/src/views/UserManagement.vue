@@ -62,7 +62,7 @@ export default {
     const fetchUsers = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:3000/api/users/all', {
+        const response = await axios.get(`${process.env.VUE_APP_API_URL}/api/users/all`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
