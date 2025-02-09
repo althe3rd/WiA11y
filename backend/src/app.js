@@ -24,7 +24,9 @@ console.log('Environment check:');
 console.log('- PORT:', process.env.PORT);
 console.log('- CORS_ORIGIN:', process.env.CORS_ORIGIN);
 console.log('- MONGODB_URI type:', typeof process.env.MONGODB_URI);
-console.log('- MONGODB_URI starts with:', process.env.MONGODB_URI?.substring(0, 20));
+console.log('- MONGODB_URI starts with:', process.env.MONGODB_URI?.substring(0, 20) + '...');
+console.log('- MONGODB_URI includes "mongodb+srv":', process.env.MONGODB_URI?.includes('mongodb+srv'));
+console.log('- MONGODB_URI length:', process.env.MONGODB_URI?.length);
 
 // Middleware
 app.use(cors());
@@ -71,18 +73,27 @@ app.use((err, req, res, next) => {
 
 // Connect to MongoDB
 console.log('Attempting to connect to MongoDB Atlas:', process.env.MONGODB_URI);
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/accessibility-scanner';
+console.log('Using MongoDB URI:', mongoUri.substring(0, 20) + '...');
+
+mongoose.connect(mongoUri, {
   retryWrites: true,
   w: 'majority',
   serverSelectionTimeoutMS: 5000,
-  connectTimeoutMS: 10000
+  connectTimeoutMS: 10000,
+  ssl: true,
+  authSource: 'admin',
+  dbName: 'accessibility-scanner'
 }).then(() => {
   console.log('Connected to MongoDB');
 }).catch(err => {
   console.error('MongoDB connection error:', err);
-  console.error('Connection string used:', process.env.MONGODB_URI?.substring(0, 20) + '...');
+  if (err.name === 'MongoServerSelectionError') {
+    console.error('Failed to connect to MongoDB server. Please check:');
+    console.error('1. MongoDB URI is correct');
+    console.error('2. Network access is allowed for IP:', process.env.SERVER_IP);
+    console.error('3. Database user has correct permissions');
+  }
 });
 
 module.exports = app; 
