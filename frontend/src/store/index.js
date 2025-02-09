@@ -31,6 +31,23 @@ export default createStore({
             console.error('Error in Vuex createCrawl:', error);
             throw error.response?.data || error;
           }
+        },
+        async cancelCrawl({ commit }, crawlId) {
+          try {
+            const token = localStorage.getItem('token');
+            const { data } = await axios.post(
+              `http://localhost:3000/api/crawls/${crawlId}/cancel`,
+              {},
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              }
+            );
+            return data;
+          } catch (error) {
+            throw error.response?.data || error;
+          }
         }
       }
     }
@@ -83,11 +100,11 @@ export default createStore({
             'Authorization': `Bearer ${token}`
           }
         });
+        console.log('Fetched teams:', data);
         commit('setTeams', data);
-        return data;
       } catch (error) {
-        console.error('Failed to fetch teams:', error);
-        throw error.response?.data || error;
+        console.error('Error fetching teams:', error);
+        throw error;
       }
     },
     async searchUsers({ state }, query) {

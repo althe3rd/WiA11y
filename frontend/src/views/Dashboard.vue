@@ -1,19 +1,18 @@
 <template>
   <div class="dashboard">
-    <h1>Web Accessibility Scanner</h1>
-    <CrawlForm />
+    <h1>Welcome Al!</h1>
+    <p>This is the dashboard for the web accessibility scanner.</p>
     <CrawlHistory />
   </div>
 </template>
 
 <script>
-import CrawlForm from '../components/CrawlForm.vue'
+
 import CrawlHistory from '../components/CrawlHistory.vue'
 
 export default {
   name: 'Dashboard',
   components: {
-    CrawlForm,
     CrawlHistory
   }
 }

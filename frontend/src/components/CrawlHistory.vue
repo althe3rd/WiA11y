@@ -1,6 +1,6 @@
 <template>
   <div class="crawl-history">
-    <h2>Crawl History</h2>
+    <h2>Sites Scanned</h2>
     <div class="crawl-list">
       <div v-for="(domainData, domain) in groupedCrawls" :key="domain" class="domain-group">
         <div class="domain-header" @click="toggleDomain(domain)">
@@ -27,7 +27,9 @@
                   {{ formatDate(crawl.createdAt) }}
                 </div>
                 <div class="crawl-stats">
-                  <span class="score">{{ crawl.accessibilityScore.toFixed(0) }}%</span>
+                  <div class="score" :class="getScoreClass(calculateScore(crawl))">
+                    {{ calculateScore(crawl) }}%
+                  </div>
                   <span 
                     v-if="index < crawls.length - 1" 
                     :class="['score-trend', getScoreTrendClass(crawl.accessibilityScore, crawls[index + 1].accessibilityScore)]"
@@ -241,14 +243,14 @@ export default {
           ? current 
           : latest;
       }, null);
-      return latestCrawl ? latestCrawl.accessibilityScore.toFixed(0) : 'N/A';
+      return latestCrawl ? this.calculateScore(latestCrawl) : 'N/A';
     },
     getDomainOverallTrendClass(domainData) {
       const allCrawls = Object.values(domainData).flat()
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       if (allCrawls.length < 2) return 'neutral';
-      const first = allCrawls[0].accessibilityScore;
-      const last = allCrawls[allCrawls.length - 1].accessibilityScore;
+      const first = this.calculateScore(allCrawls[0]);
+      const last = this.calculateScore(allCrawls[allCrawls.length - 1]);
       if (first === last) return 'neutral';
       return last > first ? 'improved' : 'declined';
     },
@@ -256,8 +258,8 @@ export default {
       const allCrawls = Object.values(domainData).flat()
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       if (allCrawls.length < 2) return 'No trend data';
-      const first = allCrawls[0].accessibilityScore;
-      const last = allCrawls[allCrawls.length - 1].accessibilityScore;
+      const first = this.calculateScore(allCrawls[0]);
+      const last = this.calculateScore(allCrawls[allCrawls.length - 1]);
       const diff = (last - first).toFixed(1);
       const totalScans = allCrawls.length;
       if (diff > 0) {
@@ -274,6 +276,51 @@ export default {
       } else {
         this.expandedDomains.splice(index, 1);
       }
+    },
+    calculateScore(crawl) {
+      // If crawl hasn't started or no pages scanned yet, return null
+      if (!crawl.status || crawl.status === 'pending' || !crawl.pagesScanned) {
+        return '—';
+      }
+      
+      // If no violations found and scan is complete, return 100
+      if (crawl.violationsFound === 0 && crawl.status === 'completed') {
+        return 100;
+      }
+      
+      // Calculate score based on violations
+      const totalPages = crawl.pagesScanned || 1;
+      
+      // Weight violations by severity
+      const deductions = {
+        critical: 15.0,   // Critical issues have major impact
+        serious: 0.6,     // ~0.6 points per serious violation (18 * 0.6 ≈ 11 points)
+        moderate: 0.2,    // ~0.2 points per moderate violation (9 * 0.2 ≈ 2 points)
+        minor: 0.1       // Minor issues have minimal impact
+      };
+      
+      // Calculate weighted deductions
+      if (crawl.violationsByImpact) {
+        const { critical, serious, moderate, minor } = crawl.violationsByImpact;
+        const totalDeduction = 
+          (critical * deductions.critical) +
+          (serious * deductions.serious) +
+          (moderate * deductions.moderate) +
+          (minor * deductions.minor);
+          
+        // Don't normalize by pages for homepage-like scoring
+        let score = Math.max(0, Math.round(100 - totalDeduction));
+        return score;
+      }
+      
+      return '—';
+    },
+    getScoreClass(score) {
+      if (score === '—') return 'score-pending';
+      if (score >= 90) return 'score-excellent';
+      if (score >= 70) return 'score-good';
+      if (score >= 50) return 'score-fair';
+      return 'score-poor';
     }
   },
   created() {
@@ -585,5 +632,30 @@ export default {
 
 .crawl-spinner :deep(.spinner-text) {
   font-size: 0.8em;
+}
+
+.score-pending {
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+.score-excellent {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.score-good {
+  background-color: #8BC34A;
+  color: white;
+}
+
+.score-fair {
+  background-color: #FFC107;
+  color: black;
+}
+
+.score-poor {
+  background-color: #F44336;
+  color: white;
 }
 </style> 
