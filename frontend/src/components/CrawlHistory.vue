@@ -1,6 +1,6 @@
 <template>
   <div class="crawl-history">
-    <h2>Sites Scanned</h2>
+    
     <div class="crawl-list">
       <div v-for="(domainData, domain) in groupedCrawls" :key="domain" class="domain-group">
         <div class="domain-header" @click="toggleDomain(domain)">
@@ -113,6 +113,10 @@ export default {
     selectedDateRange: {
       type: String,
       default: 'all'
+    },
+    limit: {
+      type: Number,
+      default: 10 // Show all when 0, otherwise limit to this number
     }
   },
   components: {
@@ -155,6 +159,19 @@ export default {
         });
       }
       
+      // Get unique domains
+      const uniqueDomains = [...new Set(filtered.map(crawl => crawl.domain))];
+      
+      // Apply limit if set
+      if (this.limit > 0) {
+        uniqueDomains.splice(this.limit);
+      }
+      
+      // Filter crawls to only include the limited domains
+      if (this.limit > 0) {
+        filtered = filtered.filter(crawl => uniqueDomains.includes(crawl.domain));
+      }
+
       // Filter by date range
       if (this.selectedDateRange !== 'all') {
         const now = new Date();
@@ -565,7 +582,7 @@ export default {
 }
 
 .domain-group {
-  margin-bottom: 40px;
+  
 }
 
 .domain-header {
@@ -574,7 +591,7 @@ export default {
   align-items: center;
   font-size: 1.5em;
   color: #2c3e50;
-  margin-bottom: 20px;
+  
   padding: 15px;
   border: 1px solid #eee;
   border-radius: 8px;
@@ -582,8 +599,13 @@ export default {
   transition: background-color 0.2s;
 }
 
+.domain-header h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0;
+}
+
 .domain-header:hover {
-  background-color: #f5f5f5;
+  background-color: #ffffff;
 }
 
 .crawl-timestamp {

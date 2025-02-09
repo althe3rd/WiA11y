@@ -2,6 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const userRoutes = require('./routes/userRoutes');
+const teamRoutes = require('./routes/teamRoutes');
+const crawlRoutes = require('./routes/crawlRoutes');
+const violationRoutes = require('./routes/violationRoutes');
+const proxyRoutes = require('./routes/proxyRoutes');
 
 const app = express();
 
@@ -23,9 +28,11 @@ app.get('/', (req, res) => {
   res.json({ message: 'Welcome to the Accessibility Crawler API' });
 });
 
-app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/teams', require('./routes/teamRoutes'));
-app.use('/api/crawls', require('./routes/crawlRoutes'));
+app.use('/api/users', userRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/crawls', crawlRoutes);
+app.use('/api/violations', violationRoutes);
+app.use('/api/proxy', proxyRoutes);
 
 // Add 404 handler
 app.use((req, res) => {

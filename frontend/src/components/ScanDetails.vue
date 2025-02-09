@@ -82,8 +82,22 @@
               v-show="expandedGroups.includes(ruleViolation.id + url)"
             >
               <div v-for="(instance, index) in urlGroup" :key="index" class="violation-instance">
-                <pre class="html-snippet">{{ instance.html }}</pre>
-                <p class="failure-summary">{{ instance.failureSummary }}</p>
+                <router-link 
+                  :to="{
+                    name: 'PagePreview',
+                    params: {
+                      scanId: crawl._id,
+                      url: encodeURIComponent(url)
+                    },
+                    query: {
+                      violationId: `${ruleViolation.id}-${ruleViolation.help}`
+                    }
+                  }"
+                  class="preview-link"
+                >
+                  <CodeBlock>{{ formatHtml(instance.html) }}</CodeBlock>
+                  <p class="failure-summary">{{ instance.failureSummary }}</p>
+                </router-link>
               </div>
             </div>
           </div>
@@ -94,11 +108,15 @@
 </template>
 
 <script>
+import CodeBlock from './CodeBlock.vue'
 import { computed, ref } from 'vue'
 import { calculateScore } from '../utils/scoreCalculator'
 
 export default {
   name: 'ScanDetails',
+  components: {
+    CodeBlock
+  },
   props: {
     crawl: {
       type: Object,
@@ -130,8 +148,6 @@ export default {
     const violationsByRule = computed(() => {
       if (!props.crawl.violations) return [];
 
-      console.log('Raw violations:', props.crawl.violations); // Debug log
-
       // First group by rule ID
       const groupedByRule = props.crawl.violations.reduce((acc, violation) => {
         // Create a unique key using help text if id is not available
@@ -157,8 +173,6 @@ export default {
         
         return acc;
       }, {});
-
-      console.log('Grouped violations:', groupedByRule); // Debug log
 
       // Convert to array and sort by impact severity
       return Object.values(groupedByRule)
@@ -194,6 +208,14 @@ export default {
       return 'score-poor'
     }
 
+    const formatHtml = (html) => {
+      return html
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .trim();
+    }
+
     return {
       getViolationsPerPage,
       violationsByRule,
@@ -203,7 +225,8 @@ export default {
       calculateScore,
       expandedGroups,
       toggleUrlGroup,
-      getImpactWidth
+      getImpactWidth,
+      formatHtml
     }
   }
 }
@@ -485,5 +508,10 @@ export default {
   margin: 1rem 0;
   padding-left: 1rem;
   border-left: 3px solid #dee2e6;
+}
+
+.preview-link {
+  text-decoration: none;
+  color: inherit;
 }
 </style> 

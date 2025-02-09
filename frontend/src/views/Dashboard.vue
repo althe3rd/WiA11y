@@ -1,6 +1,13 @@
 <template>
   <div class="dashboard">
-    <h1>Welcome {{ userFirstName }},</h1>
+    <div class="dashboard-header">
+      <div class="dashboard-header-text">
+        <h1>Dashboard</h1>
+        <h2>Welcome {{ userFirstName }}</h2>
+    </div>
+      <router-link to="/scans" class="view-all-link">View All Scanned Sites →</router-link>
+    </div>
+    
     <p>This is the dashboard for the web accessibility scanner.</p>
     <div class="filters">
       <div class="filter-group">
@@ -27,9 +34,11 @@
       :selectedTeam="selectedTeam"
       :selectedDateRange="selectedDateRange"
     />
+    <h2>Last 10 Scans</h2>
     <CrawlHistory 
       :selectedTeam="selectedTeam"
       :selectedDateRange="selectedDateRange"
+      :limit="10"
     />
   </div>
 </template>
@@ -79,6 +88,29 @@ export default {
 <style scoped>
 .dashboard {
   padding: 20px;
+}
+
+.dashboard-header-text h1, h2, h3 {
+  margin: 0;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.view-all-link {
+  color: #0d6efd;
+  text-decoration: none;
+  font-size: 1.1rem;
+  transition: color 0.2s;
+}
+
+.view-all-link:hover {
+  color: #0a58ca;
+  text-decoration: underline;
 }
 
 .filters {

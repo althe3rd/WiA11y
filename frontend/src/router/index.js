@@ -5,6 +5,8 @@ import TeamManagement from '../views/TeamManagement.vue';
 import UserManagement from '../views/UserManagement.vue';
 import Users from '../views/Users.vue';
 import ScanResults from '../views/ScanResults.vue';
+import PagePreview from '../views/PagePreview.vue';
+import AllScans from '../views/AllScans.vue';
 import store from '../store';
 
 const routes = [
@@ -44,6 +46,22 @@ const routes = [
     path: '/scans/:id',
     name: 'ScanResults',
     component: ScanResults,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/scans/:scanId/page/:url',
+    name: 'PagePreview',
+    component: PagePreview,
+    props: route => ({
+      scanId: route.params.scanId,
+      url: route.params.url,
+      selectedViolationId: route.query.violationId
+    })
+  },
+  {
+    path: '/scans',
+    name: 'AllScans',
+    component: AllScans,
     meta: { requiresAuth: true }
   }
 ];
