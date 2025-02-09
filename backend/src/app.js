@@ -11,11 +11,20 @@ const proxyRoutes = require('./routes/proxyRoutes');
 const app = express();
 
 // Load environment variables based on NODE_ENV
+console.log('Current NODE_ENV:', process.env.NODE_ENV);
 const envFile = process.env.NODE_ENV === 'production' 
   ? '.env.production' 
   : '.env.development';
+console.log('Loading environment from:', envFile);
 
 dotenv.config({ path: envFile });
+
+// Debug environment after loading
+console.log('Environment check:');
+console.log('- PORT:', process.env.PORT);
+console.log('- CORS_ORIGIN:', process.env.CORS_ORIGIN);
+console.log('- MONGODB_URI type:', typeof process.env.MONGODB_URI);
+console.log('- MONGODB_URI starts with:', process.env.MONGODB_URI?.substring(0, 20));
 
 // Middleware
 app.use(cors());

@@ -31,4 +31,6 @@ jobs:
           CORS_ORIGIN=${{ secrets.CORS_ORIGIN }}
           EOL
           npm install
-          pm2 restart wia11y 
+          pm2 delete wia11y || true
+          NODE_ENV=production pm2 start src/server.js --name "wia11y"
+          pm2 save 
