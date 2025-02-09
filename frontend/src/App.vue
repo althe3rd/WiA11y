@@ -13,7 +13,13 @@
         </router-link>
       </div>
       <div class="nav-right">
-        <span class="user-info">{{ user?.name }}</span>
+        <div class="user-info">
+          <span class="user-name">{{ user?.name }}</span>
+          <div class="role-info">
+            <span :class="['role-tag', getRoleClass]">{{ formatRole(user?.role) }}</span>
+            <span v-if="!isNetworkAdmin && userTeam" class="team-tag">{{ userTeam }}</span>
+          </div>
+        </div>
         <button @click="logout" class="button-primary">Logout</button>
       </div>
     </nav>
@@ -25,7 +31,7 @@
 <script>
 import Logo from './components/Logo.vue';
 import CrawlForm from './components/CrawlForm.vue';
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 
@@ -39,11 +45,51 @@ export default {
     const store = useStore();
     const router = useRouter();
     
+    // Fetch teams when app loads
+    onMounted(async () => {
+      if (store.getters.isAuthenticated) {
+        await store.dispatch('fetchTeams');
+      }
+    });
+    
     const isAuthenticated = computed(() => store.getters.isAuthenticated);
     const isAdmin = computed(() => store.getters.isAdmin);
     const isNetworkAdmin = computed(() => store.getters.isNetworkAdmin);
     const isTeamAdmin = computed(() => store.getters.isTeamAdmin);
     const user = computed(() => store.state.user);
+    
+    const userTeam = computed(() => {
+      // Get the team ID from the user's teams array
+      const teamId = user.value?.teams?.[0];
+      if (!teamId) return null;
+      
+      // Get the team name from the Vuex store's teams array
+      const team = store.state.teams.find(t => t._id === teamId);
+      if (team) {
+        return team.name;
+      }
+      return null;
+    });
+    
+    const getRoleClass = computed(() => {
+      const role = user.value?.role;
+      return {
+        'network-admin': role === 'network_admin',
+        'team-admin': role === 'team_admin',
+        'admin': role === 'admin',
+        'team-member': role === 'team_member'
+      };
+    });
+    
+    const formatRole = (role) => {
+      switch(role) {
+        case 'network_admin': return 'Network Admin';
+        case 'team_admin': return 'Team Admin';
+        case 'admin': return 'Admin';
+        case 'team_member': return 'Team Member';
+        default: return role;
+      }
+    };
     
     const logout = async () => {
       await store.dispatch('logout');
@@ -56,6 +102,9 @@ export default {
       isNetworkAdmin,
       isTeamAdmin,
       user,
+      userTeam,
+      getRoleClass,
+      formatRole,
       logout
     };
   }
@@ -211,5 +260,82 @@ label {
 
 .button-secondary:hover {
   background-color: rgba(131, 56, 236, 0.1);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid #e6e6e6;
+  border-radius: 40px;
+  padding: 0.15rem 0.15rem;
+  padding-left: 1rem;
+}
+
+.user-name {
+  font-weight: 500;
+}
+
+.role-info {
+  display: flex;
+  align-items: center;
+  gap: 0rem;
+  
+}
+
+.role-info span:first-child {
+  border-top-left-radius: 40px;
+  border-bottom-left-radius: 40px;
+  border-top-right-radius: 0px;
+  border-bottom-right-radius: 0px;
+}
+
+.role-info span:last-child {
+  border-top-right-radius: 40px;
+  border-bottom-right-radius: 40px;
+  border-top-left-radius: 0px;
+  border-bottom-left-radius: 0px;
+}
+
+.role-tag {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.75rem;
+  font-weight: 500;
+}
+
+.role-tag.network-admin {
+  
+  background: linear-gradient(90deg, #ffffff, #e6cff8);
+  color: rgb(57, 6, 62);
+}
+
+.role-tag.team-admin {
+  background-color: #b6d4ed;
+  color: rgb(50, 94, 152);
+}
+
+.role-tag.admin {
+  background-color: #ff9800;
+  color: white;
+}
+
+.role-tag.team-member {
+  background-color: #4caf50;
+  color: white;
+}
+
+.team-tag {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.75rem;
+
+  font-weight: 500;
+  background-color: #e6e6e6;
+  color: #666;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 </style> 

@@ -120,6 +120,7 @@ export default {
             'Authorization': `Bearer ${token}`
           }
         });
+        console.log('Teams data:', response.data);
         teams.value = response.data;
       } catch (err) {
         error.value = err.error || 'Failed to load teams';
@@ -184,7 +185,10 @@ export default {
 
 <style scoped>
 .team-management {
-  padding: 20px;
+  padding: 40px;
+  padding-top: 60px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .header {

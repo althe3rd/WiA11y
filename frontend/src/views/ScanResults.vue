@@ -60,7 +60,10 @@ export default {
 
 <style scoped>
 .scan-results {
-  padding: 20px;
+  padding: 40px;
+  padding-top: 60px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .loading, .error {

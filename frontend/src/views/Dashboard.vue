@@ -87,7 +87,10 @@ export default {
 
 <style scoped>
 .dashboard {
-  padding: 20px;
+  padding: 40px;
+  padding-top: 60px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .dashboard-header-text h1, h2, h3 {

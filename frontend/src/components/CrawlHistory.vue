@@ -3,7 +3,11 @@
     
     <div class="crawl-list">
       <div v-for="(domainData, domain) in groupedCrawls" :key="domain" class="domain-group">
-        <div class="domain-header" @click="toggleDomain(domain)">
+        <div 
+          class="domain-header" 
+          :class="{ 'expanded': expandedDomains.includes(domain) }"
+          @click="toggleDomain(domain)"
+        >
           <h3>{{ domain }}</h3>
           <div class="domain-summary">
             <span class="latest-score">
@@ -412,7 +416,7 @@ export default {
 
 <style scoped>
 .crawl-history {
-  padding: 20px;
+  
 }
 
 .crawl-list {
@@ -591,12 +595,11 @@ export default {
   align-items: center;
   font-size: 1.5em;
   color: #2c3e50;
-  
   padding: 15px;
   border: 1px solid #eee;
   border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .domain-header h3 {
@@ -604,8 +607,30 @@ export default {
   margin-bottom: 0;
 }
 
+.domain-header.expanded {
+  background: white;
+  border-color: #e6e6e6;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.domain-header.expanded + .domain-details {
+  border-top: none;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  margin-top: 0;
+  border-color: #e6e6e6;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
 .domain-header:hover {
-  background-color: #ffffff;
+  background-color: #fafafa;
+}
+
+.domain-header.expanded:hover {
+  background-color: white;
 }
 
 .crawl-timestamp {
@@ -667,6 +692,7 @@ export default {
 
 .domain-details {
   animation: slideDown 0.3s ease-out;
+
 }
 
 @keyframes slideDown {
@@ -683,8 +709,12 @@ export default {
 .wcag-group {
   margin-bottom: 30px;
   padding: 20px;
-  background: #f9f9f9;
+  background: #fff;
   border-radius: 8px;
+  border-top-left-radius: 0px;
+  border-top-right-radius: 0px;
+  
+  border: 1px solid #ededed;
 }
 
 .wcag-header {
