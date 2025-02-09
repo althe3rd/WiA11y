@@ -73,11 +73,16 @@ app.use((err, req, res, next) => {
 console.log('Attempting to connect to MongoDB Atlas:', process.env.MONGODB_URI);
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
+  retryWrites: true,
+  w: 'majority',
+  serverSelectionTimeoutMS: 5000,
+  connectTimeoutMS: 10000
 }).then(() => {
   console.log('Connected to MongoDB');
 }).catch(err => {
   console.error('MongoDB connection error:', err);
+  console.error('Connection string used:', process.env.MONGODB_URI?.substring(0, 20) + '...');
 });
 
 module.exports = app; 
