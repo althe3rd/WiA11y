@@ -4,6 +4,7 @@ import Dashboard from '../views/Dashboard.vue';
 import TeamManagement from '../views/TeamManagement.vue';
 import UserManagement from '../views/UserManagement.vue';
 import Users from '../views/Users.vue';
+import ScanResults from '../views/ScanResults.vue';
 import store from '../store';
 
 const routes = [
@@ -37,6 +38,12 @@ const routes = [
     path: '/users',
     name: 'Users',
     component: Users,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/scans/:id',
+    name: 'ScanResults',
+    component: ScanResults,
     meta: { requiresAuth: true }
   }
 ];

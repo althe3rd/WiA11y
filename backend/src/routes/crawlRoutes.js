@@ -4,6 +4,7 @@ const crawlController = require('../controllers/crawlController');
 const { auth } = require('../middleware/auth');
 const Crawl = require('../models/crawl');
 const Team = require('../models/team');
+const Violation = require('../models/violation');
 
 console.log('Setting up crawl routes');
 
@@ -18,8 +19,35 @@ router.get('/', async (req, res) => {
       const crawls = await Crawl.find()
         .sort({ createdAt: -1 })
         .populate('team', 'name _id')
-        .populate('violations');
-      return res.json(crawls);
+        .lean();
+
+      // Get violation counts for each crawl
+      const crawlsWithViolations = await Promise.all(crawls.map(async (crawl) => {
+        const violationCounts = await Violation.aggregate([
+          { $match: { crawlId: crawl._id } },
+          { $group: {
+            _id: '$impact',
+            count: { $sum: 1 }
+          }}
+        ]);
+        
+        crawl.violationsByImpact = {
+          critical: 0,
+          serious: 0,
+          moderate: 0,
+          minor: 0
+        };
+        
+        violationCounts.forEach(count => {
+          if (count._id) {
+            crawl.violationsByImpact[count._id] = count.count;
+          }
+        });
+        
+        return crawl;
+      }));
+
+      return res.json(crawlsWithViolations);
     }
     
     // Otherwise get crawls for teams user is member of
@@ -37,12 +65,97 @@ router.get('/', async (req, res) => {
     })
     .sort({ createdAt: -1 })
     .populate('team', 'name _id')
-    .populate('violations');
+    .lean();
+
+    // Get violation counts for each crawl
+    const crawlsWithViolations = await Promise.all(crawls.map(async (crawl) => {
+      const violationCounts = await Violation.aggregate([
+        { $match: { crawlId: crawl._id } },
+        { $group: {
+          _id: '$impact',
+          count: { $sum: 1 }
+        }}
+      ]);
+      
+      crawl.violationsByImpact = {
+        critical: 0,
+        serious: 0,
+        moderate: 0,
+        minor: 0
+      };
+      
+      violationCounts.forEach(count => {
+        if (count._id) {
+          crawl.violationsByImpact[count._id] = count.count;
+        }
+      });
+      
+      return crawl;
+    }));
     
-    res.json(crawls);
+    res.json(crawlsWithViolations);
   } catch (error) {
     console.error('Error fetching crawls:', error);
     res.status(500).json({ error: 'Failed to fetch crawls' });
+  }
+});
+
+// Get single crawl
+router.get('/:id', async (req, res) => {
+  try {
+    const crawl = await Crawl.findById(req.params.id)
+      .populate('team', 'name _id')
+      .lean();
+    
+    if (!crawl) {
+      return res.status(404).json({ error: 'Crawl not found' });
+    }
+    
+    // Check if user has access to this crawl's team
+    const hasAccess = ['network_admin', 'admin'].includes(req.user.role) ||
+      crawl.team.members.includes(req.user._id) ||
+      crawl.team.teamAdmins.includes(req.user._id);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Not authorized to view this scan' });
+    }
+    
+    // Fetch violations separately
+    const violations = await Violation.find({ crawlId: crawl._id })
+      .select('-crawlId -createdAt -updatedAt -__v')
+      .lean();
+    
+    // Add violations to crawl response
+    crawl.violations = violations;
+
+    // Update violation counts
+    const violationCounts = await Violation.aggregate([
+      { $match: { crawlId: crawl._id } },
+      { $group: {
+        _id: '$impact',
+        count: { $sum: 1 }
+      }}
+    ]);
+
+    // Reset impact counts
+    crawl.violationsByImpact = {
+      critical: 0,
+      serious: 0,
+      moderate: 0,
+      minor: 0
+    };
+
+    // Update counts from actual violations
+    violationCounts.forEach(count => {
+      if (count._id) {
+        crawl.violationsByImpact[count._id] = count.count;
+      }
+    });
+    
+    res.json(crawl);
+  } catch (error) {
+    console.error('Error fetching crawl:', error);
+    res.status(500).json({ error: 'Failed to fetch crawl' });
   }
 });
 

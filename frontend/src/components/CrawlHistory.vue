@@ -23,8 +23,11 @@
             <AccessibilityTrendGraph :crawls="crawls" />
             <div v-for="(crawl, index) in crawls" :key="crawl._id" class="crawl-item">
               <div class="crawl-header">
-                <div class="crawl-timestamp">
-                  {{ formatDate(crawl.createdAt) }}
+                <div class="crawl-title" @click="viewDetails(crawl)">
+                  <div class="crawl-timestamp">
+                    {{ formatDate(crawl.createdAt) }}
+                  </div>
+                  <button class="view-details-btn">View Details</button>
                 </div>
                 <div class="crawl-stats">
                   <div class="score" :class="getScoreClass(calculateScore(crawl))">
@@ -95,8 +98,10 @@
 
 <script>
 import axios from 'axios';
+import { ref } from 'vue';
 import AccessibilityTrendGraph from './AccessibilityTrendGraph.vue';
 import LoadingSpinner from './LoadingSpinner.vue';
+import { useRouter } from 'vue-router';
 
 export default {
   name: 'CrawlHistory',
@@ -114,12 +119,22 @@ export default {
     AccessibilityTrendGraph,
     LoadingSpinner
   },
-  data() {
+  setup() {
+    const router = useRouter();
+    const crawls = ref([]);
+    const pollInterval = ref(null);
+    const expandedDomains = ref([]);
+    
+    const viewDetails = (crawl) => {
+      router.push(`/scans/${crawl._id}`);
+    };
+    
     return {
-      crawls: [],
-      pollInterval: null,
-      expandedDomains: []
-    }
+      crawls,
+      pollInterval,
+      expandedDomains,
+      viewDetails
+    };
   },
   computed: {
     groupedCrawls() {
@@ -700,5 +715,26 @@ export default {
 .score-poor {
   background-color: #F44336;
   color: white;
+}
+
+.crawl-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.view-details-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  outline: inherit;
+  color: #2196F3;
+  font-size: 0.9em;
+}
+
+.view-details-btn:hover {
+  background: var(--background-color);
 }
 </style> 

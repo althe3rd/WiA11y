@@ -104,9 +104,37 @@ const crawlController = {
       const crawls = await Crawl.find(query)
         .sort({ createdAt: -1 })
         .populate('createdBy', 'name email')
-        .populate('team', 'name');
+        .populate('team', 'name')
+        .lean();
 
-      res.json(crawls);
+      // For each crawl, get the violation counts
+      const crawlsWithViolations = await Promise.all(crawls.map(async (crawl) => {
+        const violationCounts = await Violation.aggregate([
+          { $match: { crawlId: crawl._id } },
+          { $group: {
+            _id: '$impact',
+            count: { $sum: 1 }
+          }}
+        ]);
+        
+        // Update violationsByImpact with actual counts
+        crawl.violationsByImpact = {
+          critical: 0,
+          serious: 0,
+          moderate: 0,
+          minor: 0
+        };
+        
+        violationCounts.forEach(count => {
+          if (count._id) {
+            crawl.violationsByImpact[count._id] = count.count;
+          }
+        });
+        
+        return crawl;
+      }));
+
+      res.json(crawlsWithViolations);
     } catch (error) {
       console.error('Get crawls error:', error);
       res.status(500).json({ error: 'Failed to fetch crawls' });
@@ -168,6 +196,30 @@ const crawlController = {
     } catch (error) {
       console.error('Delete crawl error:', error);
       res.status(500).json({ error: 'Failed to delete crawl' });
+    }
+  },
+  async getCrawl(req, res) {
+    try {
+      const crawl = await Crawl.findById(req.params.id)
+        .populate('team', 'name _id')
+        .lean();
+
+      // Fetch violations separately
+      const violations = await Violation.find({ crawlId: req.params.id })
+        .select('-crawlId -createdAt -updatedAt -__v')
+        .lean();
+
+      if (!crawl) {
+        return res.status(404).json({ error: 'Crawl not found' });
+      }
+
+      // Add violations to crawl response
+      crawl.violations = violations;
+
+      res.json(crawl);
+    } catch (error) {
+      console.error('Error fetching crawl:', error);
+      res.status(500).json({ error: 'Failed to fetch crawl' });
     }
   }
 };

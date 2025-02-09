@@ -72,18 +72,6 @@ const crawlSchema = new mongoose.Schema({
   },
   startedAt: Date,
   completedAt: Date,
-  violations: [{
-    id: String,
-    impact: String,
-    description: String,
-    help: String,
-    helpUrl: String,
-    nodes: [{
-      html: String,
-      target: [String],
-      failureSummary: String
-    }]
-  }]
 }, {
   timestamps: true
 });
