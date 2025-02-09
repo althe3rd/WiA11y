@@ -4,6 +4,7 @@ on:
   push:
     branches: [ primary ]
     paths:
+      - '.github/workflows/**'
       - 'backend/**'
 
 jobs:

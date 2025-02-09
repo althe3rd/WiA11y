@@ -61,6 +61,7 @@ app.use((err, req, res, next) => {
 });
 
 // Connect to MongoDB
+console.log('Attempting to connect to MongoDB Atlas:', process.env.MONGODB_URI);
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
