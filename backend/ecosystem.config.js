@@ -5,12 +5,11 @@ module.exports = {
     env_production: {
       NODE_ENV: 'production',
       PORT: 3000,
-      MONGODB_URI: process.env.MONGODB_URI,
-      JWT_SECRET: process.env.JWT_SECRET,
-      CORS_ORIGIN: process.env.CORS_ORIGIN
+      MONGODB_URI: 'mongodb+srv://wia11y_admin:ZZyTkJrL34javvag@wia11y.wpyxo.mongodb.net/?retryWrites=true&w=majority&appName=WiA11y',
+      JWT_SECRET: 'p2s5v8y/B?E(H+MbQeThWmZq4t6w9z$C&F)J@NcRfUjXn2r5u8x/A%D*G-KaPdS',
+      CORS_ORIGIN: 'https://wia11y.netlify.app'
     },
     log_date_format: 'YYYY-MM-DD HH:mm:ss.SSS',
-    exp_backoff_restart_delay: 100,
-    env_file: '.env.production'
+    exp_backoff_restart_delay: 100
   }]
 } 

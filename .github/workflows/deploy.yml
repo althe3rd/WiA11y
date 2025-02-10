@@ -23,14 +23,7 @@ jobs:
         script: |
           cd /var/www/WiA11y/backend
           git pull
-          # Create production env file
-          cat > .env.production << EOL
-          PORT=3000
-          MONGODB_URI=${{ secrets.MONGODB_URI }}
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
-          CORS_ORIGIN=${{ secrets.CORS_ORIGIN }}
-          EOL
           npm install
           pm2 delete wia11y || true
-          export $(cat .env.production | xargs) && pm2 start ecosystem.config.js --env production
+          pm2 start ecosystem.config.js --env production
           pm2 save 

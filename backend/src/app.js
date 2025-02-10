@@ -1,5 +1,4 @@
 const express = require('express');
-const dotenv = require('dotenv');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const userRoutes = require('./routes/userRoutes');
@@ -9,24 +8,6 @@ const violationRoutes = require('./routes/violationRoutes');
 const proxyRoutes = require('./routes/proxyRoutes');
 
 const app = express();
-
-// Load environment variables based on NODE_ENV
-console.log('Current NODE_ENV:', process.env.NODE_ENV);
-const envFile = process.env.NODE_ENV === 'production' 
-  ? '.env.production' 
-  : '.env.development';
-console.log('Loading environment from:', envFile);
-console.log('Current directory:', process.cwd());
-console.log('Env file exists:', require('fs').existsSync(envFile));
-
-require('dotenv').config({
-  path: require('path').resolve(__dirname, '..', envFile)
-});
-
-// Force set the MongoDB URI if it's not being loaded correctly
-if (process.env.NODE_ENV === 'production') {
-  process.env.MONGODB_URI = 'mongodb+srv://wia11y_admin:ZZyTkJrL34javvag@wia11y.wpyxo.mongodb.net/?retryWrites=true&w=majority&appName=WiA11y';
-}
 
 // Debug environment after loading
 console.log('Environment check:');
