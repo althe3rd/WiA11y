@@ -24,4 +24,16 @@ jobs:
           cd /var/www/WiA11y/backend
           git pull
           npm install
-          pm2 restart wia11y 
+          # Delete existing process if it exists
+          pm2 delete wia11y || true
+          # Start with production environment
+          NODE_ENV=production \
+          MONGODB_URI="mongodb+srv://wia11y_admin:ZZyTkJrL34javvag@wia11y.wpyxo.mongodb.net/?retryWrites=true&w=majority&appName=WiA11y" \
+          JWT_SECRET="p2s5v8y/B?E(H+MbQeThWmZq4t6w9z$C&F)J@NcRfUjXn2r5u8x/A%D*G-KaPdS" \
+          CORS_ORIGIN="https://wia11y.netlify.app" \
+          pm2 start src/server.js \
+            --name "wia11y" \
+            --time \
+            --no-autorestart \
+            --exp-backoff-restart-delay=100
+          pm2 save 
