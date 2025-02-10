@@ -37,7 +37,7 @@
 import { ref } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
+import api from '../api/axios';
 
 export default {
   name: 'Login',
@@ -51,10 +51,6 @@ export default {
     const handleLogin = async () => {
       try {
         error.value = null;
-        const response = await axios.post('/api/users/login', {
-          email: email.value,
-          password: password.value
-        });
         await store.dispatch('login', {
           email: email.value,
           password: password.value

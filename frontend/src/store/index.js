@@ -1,8 +1,5 @@
 import { createStore } from 'vuex';
-import axios from 'axios';
-
-// Set the base URL for all axios requests
-axios.defaults.baseURL = process.env.VUE_APP_API_URL;
+import api from '../api/axios';
 
 export default createStore({
   state: {
@@ -23,7 +20,7 @@ export default createStore({
             console.log('Vuex createCrawl action called with:', crawlData);
             const token = localStorage.getItem('token');
             console.log('Using token:', token);
-            const { data } = await axios.post('/api/crawls', crawlData, {
+            const { data } = await api.post('/api/crawls', crawlData, {
               headers: {
                 'Authorization': `Bearer ${token}`
               }
@@ -38,7 +35,7 @@ export default createStore({
         async cancelCrawl({ commit }, crawlId) {
           try {
             const token = localStorage.getItem('token');
-            const { data } = await axios.post(
+            const { data } = await api.post(
               `/api/crawls/${crawlId}/cancel`,
               {},
               {
@@ -63,10 +60,10 @@ export default createStore({
       state.token = token;
       if (token) {
         localStorage.setItem('token', token);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       } else {
         localStorage.removeItem('token');
-        delete axios.defaults.headers.common['Authorization'];
+        delete api.defaults.headers.common['Authorization'];
       }
     },
     setTeams(state, teams) {
@@ -79,13 +76,13 @@ export default createStore({
   actions: {
     async login({ commit }, credentials) {
       try {
-        const { data } = await axios.post('http://localhost:3000/api/users/login', credentials);
-        commit('setUser', data.user);
-        commit('setToken', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        return data;
+        const response = await api.post('/api/users/login', credentials);
+        commit('setUser', response.data.user);
+        commit('setToken', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        return response.data;
       } catch (error) {
-        throw error.response.data;
+        throw error;
       }
     },
     async logout({ commit }) {
@@ -98,7 +95,7 @@ export default createStore({
     async fetchTeams({ commit }) {
       try {
         const token = localStorage.getItem('token');
-        const { data } = await axios.get('http://localhost:3000/api/teams', {
+        const { data } = await api.get('/api/teams', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -112,7 +109,7 @@ export default createStore({
     },
     async searchUsers({ state }, query) {
       try {
-        const { data } = await axios.get(`http://localhost:3000/api/users/search?q=${query}`);
+        const { data } = await api.get(`/api/users/search?q=${query}`);
         return data;
       } catch (error) {
         throw error.response.data;
@@ -121,7 +118,7 @@ export default createStore({
     async updateTeamMembers({ commit }, { teamId, addAdmins, removeAdmins, addMembers, removeMembers }) {
       try {
         const token = localStorage.getItem('token');
-        const { data } = await axios.patch(`http://localhost:3000/api/teams/${teamId}/members`, {
+        const { data } = await api.patch(`/api/teams/${teamId}/members`, {
           addAdmins,
           removeAdmins,
           addMembers,
@@ -139,7 +136,7 @@ export default createStore({
     },
     async register({ commit }, userData) {
       try {
-        await axios.post('http://localhost:3000/api/users/register', userData);
+        await api.post('/api/users/register', userData);
       } catch (error) {
         throw error.response.data;
       }
@@ -147,7 +144,7 @@ export default createStore({
     async createTeam({ commit }, teamData) {
       try {
         const token = localStorage.getItem('token');
-        const { data } = await axios.post('http://localhost:3000/api/teams', teamData, {
+        const { data } = await api.post('/api/teams', teamData, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -161,7 +158,7 @@ export default createStore({
     async updateTeam({ commit }, { id, ...teamData }) {
       try {
         const token = localStorage.getItem('token');
-        const { data } = await axios.patch(`http://localhost:3000/api/teams/${id}`, teamData, {
+        const { data } = await api.patch(`/api/teams/${id}`, teamData, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
