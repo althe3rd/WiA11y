@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const mongoose = require('mongoose');
+const connectDB = require('./config/database');
 const userRoutes = require('./routes/userRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const crawlRoutes = require('./routes/crawlRoutes');
@@ -62,40 +62,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something broke!' });
 });
 
-// Connect to MongoDB
-console.log('Attempting to connect to MongoDB Atlas:', process.env.MONGODB_URI);
-const mongoUri = process.env.MONGODB_URI;
-if (!mongoUri) {
-  throw new Error('MONGODB_URI is not defined');
-}
-console.log('Using MongoDB URI:', mongoUri.substring(0, 20) + '...');
-
-// Parse the MongoDB URI to verify it's correct
-const url = new URL(mongoUri);
-console.log('MongoDB connection details:');
-console.log('- Protocol:', url.protocol);
-console.log('- Host:', url.host);
-console.log('- Database:', url.pathname.substr(1));
-
-mongoose.connect(mongoUri, {
-  retryWrites: true,
-  w: 'majority',
-  serverSelectionTimeoutMS: 5000,
-  connectTimeoutMS: 10000,
-  ssl: true,
-  authSource: 'admin',
-  dbName: 'accessibility-scanner'
-}).then(() => {
-  console.log('Connected to MongoDB');
-}).catch(err => {
-  console.error('MongoDB connection error:', err);
-  if (err.name === 'MongoServerSelectionError') {
-    console.error('Failed to connect to MongoDB server. Please check:');
-    console.error('1. MongoDB URI is correct');
-    console.error('2. Network access is allowed for IP:', process.env.SERVER_IP);
-    console.error('3. Database user has correct permissions');
-    console.error('4. Full connection string being used:', mongoUri);
-  }
-});
+// Initialize database connection
+connectDB().catch(console.error);
 
 module.exports = app; 

@@ -28,6 +28,9 @@ jobs:
           pm2 start src/server.js \
             --name "wia11y" \
             --env production \
+            --wait-ready \
+            --listen-timeout 10000 \
+            --kill-timeout 5000 \
             -- \
             NODE_ENV=production \
             PORT=3000 \
