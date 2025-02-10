@@ -92,20 +92,70 @@ class CrawlerService {
         if (!fs.existsSync(chromeBinary)) {
           throw new Error(`Chrome binary not found at ${chromeBinary}`);
         }
-        
-        // Check if executable
+
+        // Check for critical libraries
+        const requiredLibs = [
+          'libatk-1.0.so.0',
+          'libatk-bridge-2.0.so.0',
+          'libcups.so.2',
+          'libdrm.so.2',
+          'libxkbcommon.so.0',
+          'libxcomposite.so.1',
+          'libxdamage.so.1',
+          'libxfixes.so.3',
+          'libxrandr.so.2',
+          'libgbm.so.1',
+          'libasound.so.2',
+          'libpango-1.0.so.0',
+          'libcairo.so.2',
+          'libatspi.so.0',
+          'libgtk-3.so.0'
+        ];
+
+        for (const lib of requiredLibs) {
+          try {
+            const { stdout, stderr } = await execAsync(`ldconfig -p | grep ${lib}`);
+            console.log(`Found library ${lib}:`, stdout.trim());
+          } catch (error) {
+            console.error(`Missing required library: ${lib}`);
+            throw new Error(`Missing required library: ${lib}`);
+          }
+        }
+
+        // Check if executable and readable
         try {
-          fs.accessSync(chromeBinary, fs.constants.X_OK);
+          fs.accessSync(chromeBinary, fs.constants.X_OK | fs.constants.R_OK);
         } catch (error) {
-          console.log('Setting Chrome binary as executable');
+          console.log('Setting Chrome binary permissions');
           fs.chmodSync(chromeBinary, 0o755);
         }
 
+        // Try to execute Chrome directly
+        try {
+          const { stdout } = await execAsync(`${chromeBinary} --version`);
+          console.log('Chrome version:', stdout.trim());
+        } catch (error) {
+          console.error('Error running Chrome binary directly:', error);
+        }
+
+        // Check for required libraries
+        try {
+          const { stdout: lddOutput } = await execAsync(`ldd ${chromeBinary}`);
+          console.log('Chrome binary dependencies:', lddOutput);
+        } catch (error) {
+          console.error('Error checking Chrome dependencies:', error);
+        }
+
+        const stats = fs.statSync(chromeBinary);
         console.log('Chrome binary verified:', {
           path: chromeBinary,
           exists: true,
-          executable: true,
-          size: fs.statSync(chromeBinary).size
+          executable: !!(stats.mode & fs.constants.X_OK),
+          readable: !!(stats.mode & fs.constants.R_OK),
+          size: stats.size,
+          mode: stats.mode.toString(8),
+          uid: stats.uid,
+          gid: stats.gid
         });
       } catch (error) {
         console.error('Chrome binary verification failed:', error);
@@ -126,11 +176,18 @@ class CrawlerService {
     // Set the Chrome binary path explicitly
     const chromeBinary = process.env.NODE_ENV === 'production'
       ? '/root/.cache/selenium/chrome/linux64/133.0.6943.53/chrome'
-      : undefined;  // Let it auto-detect in development
+      : undefined;
 
     if (chromeBinary) {
       options.setChromeBinaryPath(chromeBinary);
       console.log('Using Chrome binary:', chromeBinary);
+      
+      // Add Chrome debugging flags in production
+      options.addArguments(
+        '--enable-logging',
+        '--v=1',
+        '--log-path=/tmp/chrome.log'
+      );
     }
 
     // Create a unique profile directory for this crawl
@@ -149,10 +206,13 @@ class CrawlerService {
 
     let driver;
     try {
+      console.log('Building Chrome driver with options:', JSON.stringify(options, null, 2));
       driver = await new Builder()
         .forBrowser('chrome')
         .setChromeOptions(options)
         .build();
+      
+      console.log('Chrome driver built successfully');
 
       await driver.manage().setTimeouts({
         implicit: 10000,
