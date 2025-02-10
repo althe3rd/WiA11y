@@ -85,12 +85,54 @@ class CrawlerService {
     }
   }
 
+  async ensureChromeBinary() {
+    if (process.env.NODE_ENV === 'production') {
+      const chromeBinary = '/root/.cache/selenium/chrome/linux64/133.0.6943.53/chrome';
+      try {
+        if (!fs.existsSync(chromeBinary)) {
+          throw new Error(`Chrome binary not found at ${chromeBinary}`);
+        }
+        
+        // Check if executable
+        try {
+          fs.accessSync(chromeBinary, fs.constants.X_OK);
+        } catch (error) {
+          console.log('Setting Chrome binary as executable');
+          fs.chmodSync(chromeBinary, 0o755);
+        }
+
+        console.log('Chrome binary verified:', {
+          path: chromeBinary,
+          exists: true,
+          executable: true,
+          size: fs.statSync(chromeBinary).size
+        });
+      } catch (error) {
+        console.error('Chrome binary verification failed:', error);
+        throw error;
+      }
+    }
+  }
+
   async crawlDomain(crawlId, domain, crawlRate, depthLimit, pageLimit) {
     await this.killChrome();
+    await this.ensureChromeBinary();
     
     console.log(`Starting crawl for ${domain} with ID ${crawlId}`);
     console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
     
+    const options = new chrome.Options();
+    
+    // Set the Chrome binary path explicitly
+    const chromeBinary = process.env.NODE_ENV === 'production'
+      ? '/root/.cache/selenium/chrome/linux64/133.0.6943.53/chrome'
+      : undefined;  // Let it auto-detect in development
+
+    if (chromeBinary) {
+      options.setChromeBinaryPath(chromeBinary);
+      console.log('Using Chrome binary:', chromeBinary);
+    }
+
     // Create a unique profile directory for this crawl
     const uniqueProfileDir = path.join(
       os.tmpdir(),
@@ -104,36 +146,6 @@ class CrawlerService {
     }
     fs.mkdirSync(uniqueProfileDir, { recursive: true });
     fs.chmodSync(uniqueProfileDir, 0o777);
-
-    const options = new chrome.Options();
-    
-    // Common options for both environments
-    const commonArgs = [
-      '--headless=new',
-      '--no-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--disable-extensions',
-      '--disable-software-rasterizer',
-      '--no-first-run',
-      '--no-default-browser-check',
-      '--incognito',
-      '--disable-background-networking',
-      '--disable-background-timer-throttling',
-      '--disable-client-side-phishing-detection',
-      '--disable-default-apps',
-      '--disable-hang-monitor',
-      '--disable-popup-blocking',
-      '--disable-prompt-on-repost',
-      '--disable-sync',
-      '--disable-translate',
-      '--metrics-recording-only',
-      '--safebrowsing-disable-auto-update',
-      `--user-data-dir=${uniqueProfileDir}`,  // Use the unique profile directory
-      '--profile-directory=Default'  // Always use a fresh "Default" profile
-    ];
-
-    options.addArguments(...commonArgs);
 
     let driver;
     try {
