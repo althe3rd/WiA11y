@@ -91,62 +91,58 @@ class CrawlerService {
   async crawlDomain(crawlId, domain, crawlRate, depthLimit, pageLimit) {
     await this.killChrome();
     
-    if (process.env.NODE_ENV === 'production') {
-      await this.ensureChromeDirectory();
-    }
-    
     console.log(`Starting crawl for ${domain} with ID ${crawlId}`);
     console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
     
     const options = new chrome.Options();
-    let userDataDir;
 
     if (process.env.NODE_ENV === 'production') {
-      userDataDir = path.join(CHROME_USER_DIR, crawlId);
+      // In production, use a temporary profile directory
+      const tempProfileDir = `/tmp/chrome-profile-${crawlId}-${Date.now()}`;
+      console.log('Using temporary profile directory:', tempProfileDir);
+
+      options.addArguments(
+        '--headless=new',
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-software-rasterizer',
+        '--disable-extensions',
+        '--disable-setuid-sandbox',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-background-networking',
+        '--disable-background-timer-throttling',
+        '--disable-client-side-phishing-detection',
+        '--disable-default-apps',
+        '--disable-hang-monitor',
+        '--disable-popup-blocking',
+        '--disable-prompt-on-repost',
+        '--disable-sync',
+        '--disable-translate',
+        '--metrics-recording-only',
+        '--safebrowsing-disable-auto-update',
+        `--user-data-dir=/dev/null`,  // Use /dev/null to prevent profile persistence
+        `--profile-directory=${tempProfileDir}`  // Use temporary profile directory
+      );
     } else {
-      userDataDir = path.join(os.tmpdir(), 'wia11y', crawlId);
+      // In development, use temp directory as before
+      const userDataDir = path.join(os.tmpdir(), 'wia11y', crawlId);
+      
+      if (fs.existsSync(userDataDir)) {
+        fs.rmSync(userDataDir, { recursive: true, force: true });
+      }
+      fs.mkdirSync(userDataDir, { recursive: true });
+      fs.chmodSync(userDataDir, 0o777);
+
+      options.addArguments(
+        '--headless=new',
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        `--user-data-dir=${userDataDir}`
+      );
     }
-    
-    // Ensure directory exists and is clean
-    if (fs.existsSync(userDataDir)) {
-      fs.rmSync(userDataDir, { recursive: true, force: true });
-    }
-    fs.mkdirSync(userDataDir, { recursive: true });
-    fs.chmodSync(userDataDir, 0o777);
-
-    // Common Chrome options
-    const commonArgs = [
-      '--headless=new',
-      '--no-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      `--user-data-dir=${userDataDir}`
-    ];
-
-    // Production-specific options
-    const productionArgs = [
-      '--disable-software-rasterizer',
-      '--disable-extensions',
-      '--disable-setuid-sandbox',
-      '--no-first-run',
-      '--no-default-browser-check',
-      '--disable-background-networking',
-      '--disable-background-timer-throttling',
-      '--disable-client-side-phishing-detection',
-      '--disable-default-apps',
-      '--disable-hang-monitor',
-      '--disable-popup-blocking',
-      '--disable-prompt-on-repost',
-      '--disable-sync',
-      '--disable-translate',
-      '--metrics-recording-only',
-      '--safebrowsing-disable-auto-update'
-    ];
-
-    options.addArguments(
-      ...commonArgs,
-      ...(process.env.NODE_ENV === 'production' ? productionArgs : [])
-    );
 
     let driver;
     try {
