@@ -25,5 +25,8 @@ jobs:
           git pull
           npm install
           pm2 delete wia11y || true
-          pm2 start ecosystem.config.js --env production
+          pwd
+          ls -la
+          echo "Starting PM2 with absolute path..."
+          pm2 start /var/www/WiA11y/backend/ecosystem.config.js --env production --name "wia11y"
           pm2 save 
