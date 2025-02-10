@@ -49,7 +49,7 @@
 <script>
 import { ref, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
-import axios from 'axios';
+import api from '../api/axios';
 
 export default {
   name: 'UserManagement',
@@ -61,13 +61,8 @@ export default {
 
     const fetchUsers = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const response = await axios.get(`${process.env.VUE_APP_API_URL}/api/users/all`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        users.value = response.data;
+        const { data } = await api.get('/api/users/all');
+        users.value = data;
       } catch (error) {
         console.error('Failed to fetch users:', error);
       }
@@ -75,14 +70,8 @@ export default {
 
     const updateUserRole = async (userId, newRole) => {
       try {
-        const token = localStorage.getItem('token');
-        await axios.patch(`http://localhost:3000/api/users/promote/${userId}`, 
-          { role: newRole },
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          }
+        await api.patch(`/api/users/promote/${userId}`, 
+          { role: newRole }
         );
       } catch (error) {
         console.error('Failed to update user role:', error);

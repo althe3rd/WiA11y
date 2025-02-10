@@ -105,7 +105,7 @@
 <script>
 import { ref, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
-import axios from 'axios';
+import api from '../api/axios';  // Use the configured instance
 
 export default {
   name: 'CrawlForm',
@@ -221,8 +221,8 @@ export default {
         
         // Cancel the crawl directly
         const token = localStorage.getItem('token');
-        await axios.post(
-          `http://localhost:3000/api/crawls/${currentCrawlId.value}/cancel`,
+        await api.post(
+          `/api/crawls/${currentCrawlId.value}/cancel`,
           {},
           {
             headers: {

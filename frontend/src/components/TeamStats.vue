@@ -39,7 +39,7 @@
 <script>
 import { ref, onMounted, computed, watch } from 'vue'
 import { useStore } from 'vuex'
-import axios from 'axios'
+import api from '../api/axios'
 import { calculateScore } from '../utils/scoreCalculator'
 
 export default {
@@ -70,12 +70,12 @@ export default {
     const fetchAllAccessibleCrawls = async () => {
       try {
         const token = localStorage.getItem('token')
-        const response = await axios.get('http://localhost:3000/api/crawls', {
+        const { data } = await api.get('/api/crawls', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         })
-        crawls.value = response.data
+        crawls.value = data
       } catch (error) {
         console.error('Failed to fetch crawls:', error)
       }
