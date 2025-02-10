@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const connectDB = require('./config/database');
+const { connectDB } = require('./config/mongodb');
 const userRoutes = require('./routes/userRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const crawlRoutes = require('./routes/crawlRoutes');
@@ -72,6 +72,13 @@ app.use((err, req, res, next) => {
 });
 
 // Initialize database connection
-connectDB().catch(console.error);
+connectDB()
+  .then(() => {
+    console.log('Database connection established');
+  })
+  .catch(err => {
+    console.error('Failed to connect to database:', err);
+    process.exit(1);
+  });
 
 module.exports = app; 
