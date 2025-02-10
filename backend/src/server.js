@@ -83,9 +83,19 @@ const port = process.env.PORT || 3000;
 // After MongoDB connection setup
 async function initializeServices() {
   try {
-    const crawlerService = new CrawlerService();
-    await crawlerService.ensureChromeDirectory();
-    console.log('Services initialized successfully');
+    if (process.env.NODE_ENV === 'production') {
+      const crawlerService = new CrawlerService();
+      await crawlerService.ensureTempfsDirectory();
+      console.log('Production services initialized successfully');
+    } else {
+      // In development, just ensure the temp directory exists
+      const tempDir = path.join(os.tmpdir(), 'wia11y');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      fs.chmodSync(tempDir, 0o777);
+      console.log('Development services initialized successfully');
+    }
   } catch (error) {
     console.error('Error initializing services:', error);
     process.exit(1);

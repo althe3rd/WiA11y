@@ -13,9 +13,7 @@ const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
 
-const CHROME_USER_DIR = process.env.NODE_ENV === 'production' 
-  ? '/var/www/WiA11y/chrome-user-data'
-  : path.join(os.tmpdir(), 'wia11y');
+const CHROME_TMPFS_DIR = '/dev/shm/chrome-tmp';
 
 class CrawlerService {
   constructor() {
@@ -66,24 +64,23 @@ class CrawlerService {
     }
   }
 
-  async ensureChromeDirectory() {
-    // Only run this in production
-    if (process.env.NODE_ENV !== 'production') return;
-
+  async ensureTempfsDirectory() {
     try {
-      if (!fs.existsSync(CHROME_USER_DIR)) {
-        fs.mkdirSync(CHROME_USER_DIR, { recursive: true });
+      // Create tmpfs directory if it doesn't exist
+      if (!fs.existsSync(CHROME_TMPFS_DIR)) {
+        fs.mkdirSync(CHROME_TMPFS_DIR, { recursive: true });
       }
       
-      fs.chmodSync(CHROME_USER_DIR, 0o777);
+      // Set permissions
+      fs.chmodSync(CHROME_TMPFS_DIR, 0o777);
       
-      console.log('Chrome user directory ready:', {
-        path: CHROME_USER_DIR,
-        exists: fs.existsSync(CHROME_USER_DIR),
-        permissions: fs.statSync(CHROME_USER_DIR).mode
+      console.log('Chrome tmpfs directory ready:', {
+        path: CHROME_TMPFS_DIR,
+        exists: fs.existsSync(CHROME_TMPFS_DIR),
+        permissions: fs.statSync(CHROME_TMPFS_DIR).mode
       });
     } catch (error) {
-      console.error('Error setting up Chrome directory:', error);
+      console.error('Error setting up tmpfs directory:', error);
       throw error;
     }
   }
@@ -95,11 +92,12 @@ class CrawlerService {
     console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
     
     const options = new chrome.Options();
+    let userDataDir; // Declare at the top level so it's available in finally block
 
     if (process.env.NODE_ENV === 'production') {
-      // In production, use a temporary profile directory
-      const tempProfileDir = `/tmp/chrome-profile-${crawlId}-${Date.now()}`;
-      console.log('Using temporary profile directory:', tempProfileDir);
+      await this.ensureTempfsDirectory();
+      userDataDir = path.join(CHROME_TMPFS_DIR, `chrome-${crawlId}-${Date.now()}`);
+      console.log('Using tmpfs directory:', userDataDir);
 
       options.addArguments(
         '--headless=new',
@@ -122,12 +120,11 @@ class CrawlerService {
         '--disable-translate',
         '--metrics-recording-only',
         '--safebrowsing-disable-auto-update',
-        `--user-data-dir=/dev/null`,  // Use /dev/null to prevent profile persistence
-        `--profile-directory=${tempProfileDir}`  // Use temporary profile directory
+        `--user-data-dir=${userDataDir}`
       );
     } else {
       // In development, use temp directory as before
-      const userDataDir = path.join(os.tmpdir(), 'wia11y', crawlId);
+      userDataDir = path.join(os.tmpdir(), 'wia11y', crawlId);
       
       if (fs.existsSync(userDataDir)) {
         fs.rmSync(userDataDir, { recursive: true, force: true });
@@ -206,13 +203,15 @@ class CrawlerService {
       }
       
       // Clean up the user data directory
-      try {
-        if (fs.existsSync(userDataDir)) {
-          fs.rmSync(userDataDir, { recursive: true, force: true });
-          console.log('Cleaned up user data directory:', userDataDir);
+      if (userDataDir) {  // Now userDataDir is always defined
+        try {
+          if (fs.existsSync(userDataDir)) {
+            fs.rmSync(userDataDir, { recursive: true, force: true });
+            console.log('Cleaned up user data directory:', userDataDir);
+          }
+        } catch (cleanupError) {
+          console.error('Error cleaning up user data directory:', cleanupError);
         }
-      } catch (cleanupError) {
-        console.error('Error cleaning up user data directory:', cleanupError);
       }
       
       this.activeJobs.delete(crawlId);
