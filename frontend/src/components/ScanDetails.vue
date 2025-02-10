@@ -309,7 +309,7 @@ export default {
   color: white;
   font-size: 0.9rem;
   transition: width 0.3s ease;
-  min-width: 60px;
+  min-width: 5px;
 }
 
 .impact-segment.critical { background-color: #d32f2f; }
