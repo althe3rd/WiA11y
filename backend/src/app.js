@@ -70,6 +70,13 @@ if (!mongoUri) {
 }
 console.log('Using MongoDB URI:', mongoUri.substring(0, 20) + '...');
 
+// Parse the MongoDB URI to verify it's correct
+const url = new URL(mongoUri);
+console.log('MongoDB connection details:');
+console.log('- Protocol:', url.protocol);
+console.log('- Host:', url.host);
+console.log('- Database:', url.pathname.substr(1));
+
 mongoose.connect(mongoUri, {
   retryWrites: true,
   w: 'majority',
@@ -87,6 +94,7 @@ mongoose.connect(mongoUri, {
     console.error('1. MongoDB URI is correct');
     console.error('2. Network access is allowed for IP:', process.env.SERVER_IP);
     console.error('3. Database user has correct permissions');
+    console.error('4. Full connection string being used:', mongoUri);
   }
 });
 

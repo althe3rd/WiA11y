@@ -25,8 +25,13 @@ jobs:
           git pull
           npm install
           pm2 delete wia11y || true
-          pwd
-          ls -la
-          echo "Starting PM2 with absolute path..."
-          pm2 start /var/www/WiA11y/backend/ecosystem.config.js --env production --name "wia11y"
+          pm2 start src/server.js \
+            --name "wia11y" \
+            --env production \
+            -- \
+            NODE_ENV=production \
+            PORT=3000 \
+            MONGODB_URI="mongodb+srv://wia11y_admin:ZZyTkJrL34javvag@wia11y.wpyxo.mongodb.net/?retryWrites=true&w=majority&appName=WiA11y" \
+            JWT_SECRET="p2s5v8y/B?E(H+MbQeThWmZq4t6w9z$C&F)J@NcRfUjXn2r5u8x/A%D*G-KaPdS" \
+            CORS_ORIGIN="https://wia11y.netlify.app"
           pm2 save 
