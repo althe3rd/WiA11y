@@ -91,54 +91,49 @@ class CrawlerService {
     console.log(`Starting crawl for ${domain} with ID ${crawlId}`);
     console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
     
-    const options = new chrome.Options();
-    let userDataDir = null; // Declare at function scope for cleanup
+    // Create a unique profile directory for this crawl
+    const uniqueProfileDir = path.join(
+      os.tmpdir(),
+      'wia11y-profiles',
+      `profile-${crawlId.toString()}-${Date.now()}`
+    );
 
-    if (process.env.NODE_ENV === 'production') {
-      // In production, use a completely temporary profile
-      options.addArguments(
-        '--headless=new',
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-software-rasterizer',
-        '--disable-extensions',
-        '--disable-setuid-sandbox',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--disable-background-networking',
-        '--disable-background-timer-throttling',
-        '--disable-client-side-phishing-detection',
-        '--disable-default-apps',
-        '--disable-hang-monitor',
-        '--disable-popup-blocking',
-        '--disable-prompt-on-repost',
-        '--disable-sync',
-        '--disable-translate',
-        '--metrics-recording-only',
-        '--safebrowsing-disable-auto-update',
-        '--incognito',  // Use incognito mode
-        '--disk-cache-dir=/dev/null',  // Disable disk cache
-        '--disk-cache-size=1'  // Minimal cache size
-      );
-    } else {
-      // Development code stays the same
-      userDataDir = path.join(os.tmpdir(), 'wia11y', crawlId.toString()); // Convert ObjectId to string
-      
-      if (fs.existsSync(userDataDir)) {
-        fs.rmSync(userDataDir, { recursive: true, force: true });
-      }
-      fs.mkdirSync(userDataDir, { recursive: true });
-      fs.chmodSync(userDataDir, 0o777);
-
-      options.addArguments(
-        '--headless=new',
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        `--user-data-dir=${userDataDir}`
-      );
+    // Ensure the profiles directory exists and is clean
+    if (fs.existsSync(uniqueProfileDir)) {
+      fs.rmSync(uniqueProfileDir, { recursive: true, force: true });
     }
+    fs.mkdirSync(uniqueProfileDir, { recursive: true });
+    fs.chmodSync(uniqueProfileDir, 0o777);
+
+    const options = new chrome.Options();
+    
+    // Common options for both environments
+    const commonArgs = [
+      '--headless=new',
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-extensions',
+      '--disable-software-rasterizer',
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--incognito',
+      '--disable-background-networking',
+      '--disable-background-timer-throttling',
+      '--disable-client-side-phishing-detection',
+      '--disable-default-apps',
+      '--disable-hang-monitor',
+      '--disable-popup-blocking',
+      '--disable-prompt-on-repost',
+      '--disable-sync',
+      '--disable-translate',
+      '--metrics-recording-only',
+      '--safebrowsing-disable-auto-update',
+      `--user-data-dir=${uniqueProfileDir}`,  // Use the unique profile directory
+      '--profile-directory=Default'  // Always use a fresh "Default" profile
+    ];
+
+    options.addArguments(...commonArgs);
 
     let driver;
     try {
@@ -201,16 +196,14 @@ class CrawlerService {
         }
       }
       
-      // Clean up the user data directory if it exists
-      if (userDataDir) {
-        try {
-          if (fs.existsSync(userDataDir)) {
-            fs.rmSync(userDataDir, { recursive: true, force: true });
-            console.log('Cleaned up user data directory:', userDataDir);
-          }
-        } catch (cleanupError) {
-          console.error('Error cleaning up user data directory:', cleanupError);
+      // Clean up the profile directory
+      try {
+        if (fs.existsSync(uniqueProfileDir)) {
+          fs.rmSync(uniqueProfileDir, { recursive: true, force: true });
+          console.log('Cleaned up Chrome profile directory:', uniqueProfileDir);
         }
+      } catch (cleanupError) {
+        console.error('Error cleaning up profile directory:', cleanupError);
       }
       
       this.activeJobs.delete(crawlId);
