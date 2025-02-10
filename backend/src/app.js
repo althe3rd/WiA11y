@@ -9,8 +9,14 @@ const proxyRoutes = require('./routes/proxyRoutes');
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// Update CORS configuration
+app.use(cors({
+  origin: process.env.CORS_ORIGIN,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // Add before routes
