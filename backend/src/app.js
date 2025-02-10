@@ -1,3 +1,7 @@
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('Loading config from:', process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development');
+console.log('MONGODB_URI:', process.env.MONGODB_URI);
+
 require('dotenv').config({
   path: process.env.NODE_ENV === 'production' 
     ? '.env.production'

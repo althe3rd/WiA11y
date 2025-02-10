@@ -4,6 +4,9 @@ const { Builder } = require('selenium-webdriver');
 const axeCore = require('axe-core');
 const Crawl = require('../models/crawl');
 const Violation = require('../models/violation');
+const chrome = require('selenium-webdriver/chrome');
+const path = require('path');
+const os = require('os');
 
 class CrawlerService {
   constructor() {
@@ -47,15 +50,27 @@ class CrawlerService {
     this.currentDomain = domain;
     this.urlDepths.clear();
     this.visitedUrlsByCrawl.set(crawlId, new Set());
-    const driver = await new Builder()
-      .forBrowser('chrome')
-      .setChromeOptions({
-        binary: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-      })
-      .build();
-    this.activeJobs.set(crawlId, { driver, isRunning: true });
+    const options = new chrome.Options();
     
+    // Create a unique temp directory for this crawl
+    const tempDir = path.join(os.tmpdir(), `wia11y-${crawlId}`);
+    
+    options.addArguments(
+      '--headless',
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      `--user-data-dir=${tempDir}`,
+      '--disable-gpu'
+    );
+
+    let driver;
     try {
+      driver = await new Builder()
+        .forBrowser('chrome')
+        .setChromeOptions(options)
+        .build();
+      this.activeJobs.set(crawlId, { driver, isRunning: true });
+      
       await this.updateCrawlStatus(crawlId, { 
         status: 'in_progress', 
         startedAt: new Date(),
@@ -92,7 +107,15 @@ class CrawlerService {
         error: error.message
       });
     } finally {
-      await driver.quit();
+      if (driver) {
+        try {
+          await driver.quit();
+          // Clean up the temp directory
+          require('fs').rmSync(tempDir, { recursive: true, force: true });
+        } catch (error) {
+          console.error('Error cleaning up crawler:', error);
+        }
+      }
       this.activeJobs.delete(crawlId);
       this.visitedUrlsByCrawl.delete(crawlId);
     }

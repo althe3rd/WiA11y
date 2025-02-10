@@ -1,5 +1,8 @@
 const mongoose = require('mongoose');
 const app = require('./app');
+const os = require('os');
+const fs = require('fs');
+const path = require('path');
 
 // Add connection debugging
 mongoose.connection.on('connected', () => {
@@ -18,12 +21,14 @@ mongoose.connection.on('disconnected', () => {
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('MongoDB connection successful');
+    console.log('Connected to database:', mongoose.connection.db.databaseName);
     // Log database stats
     return mongoose.connection.db.stats();
   })
   .then((stats) => {
     console.log('Database stats:', {
       database: mongoose.connection.name,
+      databaseName: mongoose.connection.db.databaseName,
       collections: stats.collections,
       objects: stats.objects
     });
@@ -36,6 +41,27 @@ mongoose.connect(process.env.MONGODB_URI)
   .catch((err) => {
     console.error('MongoDB connection error:', err);
   });
+
+// Add this before starting the server
+function cleanupTempDirs() {
+  const tempDir = os.tmpdir();
+  const files = fs.readdirSync(tempDir);
+  
+  files.forEach(file => {
+    if (file.startsWith('wia11y-')) {
+      const fullPath = path.join(tempDir, file);
+      try {
+        fs.rmSync(fullPath, { recursive: true, force: true });
+        console.log('Cleaned up temp directory:', fullPath);
+      } catch (error) {
+        console.error('Error cleaning temp directory:', error);
+      }
+    }
+  });
+}
+
+// Add before starting the server
+cleanupTempDirs();
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
