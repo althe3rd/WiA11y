@@ -4,6 +4,12 @@ const { MongoClient } = require('mongodb');
 const connectDB = async () => {
   try {
     const mongoUri = process.env.MONGODB_URI;
+    // Force the production URI if not set
+    if (!mongoUri && process.env.NODE_ENV === 'production') {
+      console.log('MONGODB_URI not found, using hardcoded production URI');
+      process.env.MONGODB_URI = 'mongodb+srv://wia11y_admin:ZZyTkJrL34javvag@wia11y.wpyxo.mongodb.net/?retryWrites=true&w=majority&appName=WiA11y';
+    }
+
     if (!mongoUri) {
       throw new Error('MONGODB_URI is not defined');
     }

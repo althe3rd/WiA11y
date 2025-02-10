@@ -25,18 +25,5 @@ jobs:
           git pull
           npm install
           pm2 delete wia11y || true
-          # Export environment variables
-          export NODE_ENV=production
-          export PORT=3000
-          export MONGODB_URI="mongodb+srv://wia11y_admin:ZZyTkJrL34javvag@wia11y.wpyxo.mongodb.net/?retryWrites=true&w=majority&appName=WiA11y"
-          export JWT_SECRET="p2s5v8y/B?E(H+MbQeThWmZq4t6w9z$C&F)J@NcRfUjXn2r5u8x/A%D*G-KaPdS"
-          export CORS_ORIGIN="https://wia11y.netlify.app"
-          
-          # Start the application
-          pm2 start src/server.js \
-            --name "wia11y" \
-            --env production \
-            --wait-ready \
-            --listen-timeout 10000 \
-            --kill-timeout 5000
+          pm2 start ecosystem.config.prod.js
           pm2 save 
