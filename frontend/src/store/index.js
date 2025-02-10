@@ -1,6 +1,9 @@
 import { createStore } from 'vuex';
 import axios from 'axios';
 
+// Set the base URL for all axios requests
+axios.defaults.baseURL = process.env.VUE_APP_API_URL;
+
 export default createStore({
   state: {
     user: null,
