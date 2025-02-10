@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const baseURL = process.env.NODE_ENV === 'production'
-  ? 'https://wai11y-api.heroiccloud.com'
+  ? 'https://wia11y-api.heroiccloud.com'
   : 'http://localhost:3000';
 
 const instance = axios.create({
