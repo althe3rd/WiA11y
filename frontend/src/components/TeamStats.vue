@@ -69,12 +69,7 @@ export default {
     
     const fetchAllAccessibleCrawls = async () => {
       try {
-        const token = localStorage.getItem('token')
-        const { data } = await api.get('/api/crawls', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
+        const { data } = await api.get('/api/crawls')
         crawls.value = data
       } catch (error) {
         console.error('Failed to fetch crawls:', error)

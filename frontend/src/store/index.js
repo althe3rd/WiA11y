@@ -111,16 +111,20 @@ export default createStore({
     },
     async fetchTeams({ commit }) {
       try {
-        const token = localStorage.getItem('token');
-        const { data } = await api.get('/api/teams', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        console.log('Fetched teams:', data);
+        const { data } = await api.get('/api/teams');
         commit('setTeams', data);
+        return data;
       } catch (error) {
-        console.error('Error fetching teams:', error);
+        console.error('Failed to fetch teams:', error);
+        throw error;
+      }
+    },
+    async fetchUsers({ commit }) {
+      try {
+        const { data } = await api.get('/api/users/all');
+        return data;
+      } catch (error) {
+        console.error('Failed to fetch users:', error);
         throw error;
       }
     },
