@@ -3,6 +3,10 @@ const app = require('./app');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+const { exec } = require('child_process');
+const util = require('util');
+
+const execAsync = util.promisify(exec);
 
 // Add connection debugging
 mongoose.connection.on('connected', () => {
@@ -43,21 +47,28 @@ mongoose.connect(process.env.MONGODB_URI)
   });
 
 // Add this before starting the server
-function cleanupTempDirs() {
+async function cleanupTempDirs() {
   const tempDir = path.join(os.tmpdir(), 'wia11y');
   
   try {
+    // Kill any existing Chrome processes
+    if (process.platform === 'linux') {
+      try {
+        await execAsync('pkill -f chrome');
+        console.log('Killed existing Chrome processes');
+      } catch (error) {
+        // Ignore errors
+      }
+    }
+
     if (fs.existsSync(tempDir)) {
       console.log('Cleaning up WiA11y temp directory:', tempDir);
       fs.rmSync(tempDir, { recursive: true, force: true });
-      // Recreate the base directory
-      fs.mkdirSync(tempDir, { recursive: true });
-      console.log('WiA11y temp directory cleaned and recreated');
-    } else {
-      // Create the base directory if it doesn't exist
-      fs.mkdirSync(tempDir, { recursive: true });
-      console.log('Created WiA11y temp directory:', tempDir);
     }
+    
+    // Create with permissive permissions
+    fs.mkdirSync(tempDir, { recursive: true, mode: 0o777 });
+    console.log('Created WiA11y temp directory with permissions:', tempDir);
   } catch (error) {
     console.error('Error managing temp directories:', error);
   }

@@ -9,6 +9,9 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const fs = require('fs');
+const { exec } = require('child_process');
+const util = require('util');
+const execAsync = util.promisify(exec);
 
 class CrawlerService {
   constructor() {
@@ -47,7 +50,22 @@ class CrawlerService {
     return path.join(os.tmpdir(), 'wia11y', uniqueHash);
   }
 
+  async killChrome() {
+    try {
+      if (process.platform === 'linux') {
+        await execAsync('pkill -f chrome');
+        console.log('Killed existing Chrome processes');
+      }
+    } catch (error) {
+      // Ignore errors as they likely mean no Chrome processes were found
+      console.log('No existing Chrome processes found');
+    }
+  }
+
   async crawlDomain(crawlId, domain, crawlRate, depthLimit, pageLimit) {
+    // Kill any existing Chrome processes first
+    await this.killChrome();
+    
     console.log(`Starting crawl for ${domain} with ID ${crawlId}`);
     console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
     
@@ -59,24 +77,61 @@ class CrawlerService {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
     fs.mkdirSync(tempDir, { recursive: true });
+    
+    // Set directory permissions to be more permissive
+    fs.chmodSync(tempDir, 0o777);
 
     const options = new chrome.Options();
     options.addArguments(
-      '--headless',
+      '--headless=new',  // Use new headless mode
       '--no-sandbox',
       '--disable-dev-shm-usage',
-      `--user-data-dir=${tempDir}`,
       '--disable-gpu',
       '--disable-software-rasterizer',
-      '--disable-extensions'
+      '--disable-extensions',
+      '--disable-setuid-sandbox',
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--password-store=basic',
+      '--use-gl=swiftshader',
+      '--window-size=1920,1080',
+      `--user-data-dir=${tempDir}`
     );
+
+    // Set Chrome binary path if in production
+    if (process.env.NODE_ENV === 'production') {
+      options.addArguments(
+        '--remote-debugging-port=9222',
+        '--disable-background-networking',
+        '--disable-background-timer-throttling',
+        '--disable-client-side-phishing-detection',
+        '--disable-default-apps',
+        '--disable-hang-monitor',
+        '--disable-popup-blocking',
+        '--disable-prompt-on-repost',
+        '--disable-sync',
+        '--disable-translate',
+        '--metrics-recording-only',
+        '--no-first-run',
+        '--safebrowsing-disable-auto-update'
+      );
+    }
 
     let driver;
     try {
+      // Add explicit timeouts
       driver = await new Builder()
         .forBrowser('chrome')
         .setChromeOptions(options)
         .build();
+
+      // Set timeouts
+      await driver.manage().setTimeouts({
+        implicit: 10000,
+        pageLoad: 30000,
+        script: 30000
+      });
+
       this.activeJobs.set(crawlId, { driver, isRunning: true });
       
       await this.updateCrawlStatus(crawlId, { 
@@ -583,5 +638,4 @@ class CrawlerService {
   }
 }
 
-module.exports = CrawlerService; 
 module.exports = CrawlerService; 
