@@ -8,11 +8,7 @@ const instance = axios.create({
   baseURL,
   headers: {
     'Content-Type': 'application/json'
-  },
-  // Only add this if you're using a self-signed cert temporarily
-  httpsAgent: process.env.NODE_ENV === 'development' ? new (require('https').Agent)({
-    rejectUnauthorized: false
-  }) : undefined
+  }
 });
 
 // Add request interceptor to handle auth

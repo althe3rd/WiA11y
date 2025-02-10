@@ -7,8 +7,8 @@ require('dotenv').config({
     ? '.env.production'
     : '.env.development'
 });
-const express = require('express');
 const cors = require('cors');
+const express = require('express');
 const userRoutes = require('./routes/userRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const crawlRoutes = require('./routes/crawlRoutes');
@@ -28,34 +28,30 @@ console.log('Environment variables:', {
   MONGODB_URI: process.env.MONGODB_URI
 });
 
-// Update CORS configuration
+// CORS Configuration
+const allowedOrigins = [
+  'https://wia11y.netlify.app',
+  'http://localhost:8080',
+  'http://localhost:3000'
+];
+
 app.use(cors({
-  origin: (origin, callback) => {
-    console.log('Request origin:', origin);
-    
-    // Allow these origins
-    const allowedOrigins = [
-      process.env.CORS_ORIGIN,
-      'https://wia11y.netlify.app',
-      'https://wai11y-api.heroiccloud.com',
-      'http://localhost:8080'
-    ];
-    
+  origin: function(origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('Origin not allowed:', origin);
-      callback(new Error('Not allowed by CORS'));
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      console.log('Origin rejected:', origin);
+      return callback(new Error('Not allowed by CORS'));
     }
+    
+    console.log('Origin allowed:', origin);
+    return callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
-// Add CORS preflight
-app.options('*', cors());
 
 app.use(express.json());
 
