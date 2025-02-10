@@ -5,7 +5,7 @@ import router from './router'
 import store from './store'
 import axios from 'axios'
 
-// Set axios defaults
+// Move this BEFORE any other imports that might use axios
 axios.defaults.baseURL = process.env.VUE_APP_API_URL
 
 // Create and mount the Vue application

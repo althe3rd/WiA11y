@@ -1,13 +1,13 @@
 async login({ commit }, credentials) {
   try {
-    const response = await axios.post('http://localhost:3000/api/auth/login', credentials);
+    const response = await axios.post('/api/users/login', credentials);
     const { token, user } = response.data;
     
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
     
     // Fetch user's team information
-    const teamResponse = await axios.get('http://localhost:3000/api/teams/managed', {
+    const teamResponse = await axios.get('/api/teams/managed', {
       headers: {
         'Authorization': `Bearer ${token}`
       }

@@ -23,7 +23,7 @@ export default createStore({
             console.log('Vuex createCrawl action called with:', crawlData);
             const token = localStorage.getItem('token');
             console.log('Using token:', token);
-            const { data } = await axios.post('http://localhost:3000/api/crawls', crawlData, {
+            const { data } = await axios.post('/api/crawls', crawlData, {
               headers: {
                 'Authorization': `Bearer ${token}`
               }
@@ -39,7 +39,7 @@ export default createStore({
           try {
             const token = localStorage.getItem('token');
             const { data } = await axios.post(
-              `http://localhost:3000/api/crawls/${crawlId}/cancel`,
+              `/api/crawls/${crawlId}/cancel`,
               {},
               {
                 headers: {
