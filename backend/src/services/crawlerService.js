@@ -13,6 +13,10 @@ const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
 
+const CHROME_USER_DIR = process.env.NODE_ENV === 'production' 
+  ? '/var/www/WiA11y/chrome-user-data'
+  : path.join(os.tmpdir(), 'wia11y');
+
 class CrawlerService {
   constructor() {
     this.queue = [];
@@ -62,59 +66,87 @@ class CrawlerService {
     }
   }
 
+  async ensureChromeDirectory() {
+    // Only run this in production
+    if (process.env.NODE_ENV !== 'production') return;
+
+    try {
+      if (!fs.existsSync(CHROME_USER_DIR)) {
+        fs.mkdirSync(CHROME_USER_DIR, { recursive: true });
+      }
+      
+      fs.chmodSync(CHROME_USER_DIR, 0o777);
+      
+      console.log('Chrome user directory ready:', {
+        path: CHROME_USER_DIR,
+        exists: fs.existsSync(CHROME_USER_DIR),
+        permissions: fs.statSync(CHROME_USER_DIR).mode
+      });
+    } catch (error) {
+      console.error('Error setting up Chrome directory:', error);
+      throw error;
+    }
+  }
+
   async crawlDomain(crawlId, domain, crawlRate, depthLimit, pageLimit) {
-    // Kill any existing Chrome processes first
     await this.killChrome();
+    
+    if (process.env.NODE_ENV === 'production') {
+      await this.ensureChromeDirectory();
+    }
     
     console.log(`Starting crawl for ${domain} with ID ${crawlId}`);
     console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
     
     const options = new chrome.Options();
-    let tempDir;  // Declare tempDir outside the if block
-    
+    let userDataDir;
+
     if (process.env.NODE_ENV === 'production') {
-      // In production, don't use user-data-dir at all
-      options.addArguments(
-        '--headless=new',
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-software-rasterizer',
-        '--disable-extensions',
-        '--disable-setuid-sandbox',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--disable-background-networking',
-        '--disable-background-timer-throttling',
-        '--disable-client-side-phishing-detection',
-        '--disable-default-apps',
-        '--disable-hang-monitor',
-        '--disable-popup-blocking',
-        '--disable-prompt-on-repost',
-        '--disable-sync',
-        '--disable-translate',
-        '--metrics-recording-only',
-        '--safebrowsing-disable-auto-update'
-      );
+      userDataDir = path.join(CHROME_USER_DIR, crawlId);
     } else {
-      // In development, use temp directory
-      tempDir = this.getTempDir(crawlId);
-      console.log('Using temp directory:', tempDir);
-
-      if (fs.existsSync(tempDir)) {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      }
-      fs.mkdirSync(tempDir, { recursive: true });
-      fs.chmodSync(tempDir, 0o777);
-
-      options.addArguments(
-        '--headless=new',
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        `--user-data-dir=${tempDir}`
-      );
+      userDataDir = path.join(os.tmpdir(), 'wia11y', crawlId);
     }
+    
+    // Ensure directory exists and is clean
+    if (fs.existsSync(userDataDir)) {
+      fs.rmSync(userDataDir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(userDataDir, { recursive: true });
+    fs.chmodSync(userDataDir, 0o777);
+
+    // Common Chrome options
+    const commonArgs = [
+      '--headless=new',
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      `--user-data-dir=${userDataDir}`
+    ];
+
+    // Production-specific options
+    const productionArgs = [
+      '--disable-software-rasterizer',
+      '--disable-extensions',
+      '--disable-setuid-sandbox',
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--disable-background-networking',
+      '--disable-background-timer-throttling',
+      '--disable-client-side-phishing-detection',
+      '--disable-default-apps',
+      '--disable-hang-monitor',
+      '--disable-popup-blocking',
+      '--disable-prompt-on-repost',
+      '--disable-sync',
+      '--disable-translate',
+      '--metrics-recording-only',
+      '--safebrowsing-disable-auto-update'
+    ];
+
+    options.addArguments(
+      ...commonArgs,
+      ...(process.env.NODE_ENV === 'production' ? productionArgs : [])
+    );
 
     let driver;
     try {
@@ -163,13 +195,6 @@ class CrawlerService {
     } catch (error) {
       console.error(`Crawl error for ${domain}:`, error);
       console.error('Chrome options used:', options);
-      if (tempDir) {  // Only log temp directory status if it exists
-        console.error('Temp directory status:', {
-          exists: fs.existsSync(tempDir),
-          isDirectory: fs.existsSync(tempDir) ? fs.statSync(tempDir).isDirectory() : false,
-          permissions: fs.existsSync(tempDir) ? fs.statSync(tempDir).mode : null
-        });
-      }
       
       await this.updateCrawlStatus(crawlId, { 
         status: 'failed',
@@ -184,16 +209,14 @@ class CrawlerService {
         }
       }
       
-      // Clean up temp directory only if it was created
-      if (tempDir) {
-        try {
-          if (fs.existsSync(tempDir)) {
-            fs.rmSync(tempDir, { recursive: true, force: true });
-            console.log('Cleaned up temp directory:', tempDir);
-          }
-        } catch (cleanupError) {
-          console.error('Error cleaning up temp directory:', cleanupError);
+      // Clean up the user data directory
+      try {
+        if (fs.existsSync(userDataDir)) {
+          fs.rmSync(userDataDir, { recursive: true, force: true });
+          console.log('Cleaned up user data directory:', userDataDir);
         }
+      } catch (cleanupError) {
+        console.error('Error cleaning up user data directory:', cleanupError);
       }
       
       this.activeJobs.delete(crawlId);

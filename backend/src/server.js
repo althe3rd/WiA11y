@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 const util = require('util');
+const CrawlerService = require('./services/crawlerService');
 
 const execAsync = util.promisify(exec);
 
@@ -78,6 +79,22 @@ async function cleanupTempDirs() {
 cleanupTempDirs();
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+
+// After MongoDB connection setup
+async function initializeServices() {
+  try {
+    const crawlerService = new CrawlerService();
+    await crawlerService.ensureChromeDirectory();
+    console.log('Services initialized successfully');
+  } catch (error) {
+    console.error('Error initializing services:', error);
+    process.exit(1);
+  }
+}
+
+// Call it before starting the server
+initializeServices().then(() => {
+  app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+  });
 }); 
