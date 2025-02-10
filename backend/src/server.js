@@ -10,7 +10,8 @@ mongoose.connection.once('open', () => {
   console.log('MongoDB connected successfully');
 });
 
-mongoose.connect('mongodb://localhost:27017/accessibility-crawler', {
+// Remove hardcoded connection string and use environment variable
+mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 }).catch(error => {
