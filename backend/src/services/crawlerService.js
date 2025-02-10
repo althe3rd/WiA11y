@@ -69,39 +69,20 @@ class CrawlerService {
     console.log(`Starting crawl for ${domain} with ID ${crawlId}`);
     console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
     
-    const tempDir = this.getTempDir(crawlId);
-    console.log('Using temp directory:', tempDir);
-
-    // Ensure the directory exists and is empty
-    if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-    fs.mkdirSync(tempDir, { recursive: true });
-    
-    // Set directory permissions to be more permissive
-    fs.chmodSync(tempDir, 0o777);
-
     const options = new chrome.Options();
-    options.addArguments(
-      '--headless=new',  // Use new headless mode
-      '--no-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--disable-software-rasterizer',
-      '--disable-extensions',
-      '--disable-setuid-sandbox',
-      '--no-first-run',
-      '--no-default-browser-check',
-      '--password-store=basic',
-      '--use-gl=swiftshader',
-      '--window-size=1920,1080',
-      `--user-data-dir=${tempDir}`
-    );
-
-    // Set Chrome binary path if in production
+    
     if (process.env.NODE_ENV === 'production') {
+      // In production, don't use user-data-dir at all
       options.addArguments(
-        '--remote-debugging-port=9222',
+        '--headless=new',
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-software-rasterizer',
+        '--disable-extensions',
+        '--disable-setuid-sandbox',
+        '--no-first-run',
+        '--no-default-browser-check',
         '--disable-background-networking',
         '--disable-background-timer-throttling',
         '--disable-client-side-phishing-detection',
@@ -112,20 +93,35 @@ class CrawlerService {
         '--disable-sync',
         '--disable-translate',
         '--metrics-recording-only',
-        '--no-first-run',
         '--safebrowsing-disable-auto-update'
+      );
+    } else {
+      // In development, use temp directory
+      const tempDir = this.getTempDir(crawlId);
+      console.log('Using temp directory:', tempDir);
+
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+      fs.mkdirSync(tempDir, { recursive: true });
+      fs.chmodSync(tempDir, 0o777);
+
+      options.addArguments(
+        '--headless=new',
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        `--user-data-dir=${tempDir}`
       );
     }
 
     let driver;
     try {
-      // Add explicit timeouts
       driver = await new Builder()
         .forBrowser('chrome')
         .setChromeOptions(options)
         .build();
 
-      // Set timeouts
       await driver.manage().setTimeouts({
         implicit: 10000,
         pageLoad: 30000,
