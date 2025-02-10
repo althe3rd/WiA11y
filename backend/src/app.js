@@ -21,9 +21,14 @@ app.use(express.json());
 
 // Add before routes
 app.use((req, res, next) => {
-  console.log(`Request: ${req.method} ${req.url}`);
-  console.log('Request body:', req.body);
-  console.log('Request headers:', req.headers);
+  console.log('Incoming request:', {
+    method: req.method,
+    url: req.url,
+    originalUrl: req.originalUrl,
+    baseUrl: req.baseUrl,
+    path: req.path,
+    headers: req.headers
+  });
   next();
 });
 
