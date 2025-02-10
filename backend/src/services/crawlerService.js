@@ -7,6 +7,8 @@ const Violation = require('../models/violation');
 const chrome = require('selenium-webdriver/chrome');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
+const fs = require('fs');
 
 class CrawlerService {
   constructor() {
@@ -36,31 +38,37 @@ class CrawlerService {
     }
   }
 
-  async crawlDomain(crawlId, domain, crawlRate, depthLimit, pageLimit) {
-    console.log('crawlDomain called with:', {
-      crawlId,
-      domain,
-      crawlRate,
-      depthLimit,
-      pageLimit
-    });
+  getTempDir(crawlId) {
+    // Create a unique hash based on crawlId and timestamp
+    const uniqueHash = crypto.createHash('md5')
+      .update(`${crawlId}-${Date.now()}`)
+      .digest('hex');
+    
+    return path.join(os.tmpdir(), 'wia11y', uniqueHash);
+  }
 
+  async crawlDomain(crawlId, domain, crawlRate, depthLimit, pageLimit) {
     console.log(`Starting crawl for ${domain} with ID ${crawlId}`);
     console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
-    this.currentDomain = domain;
-    this.urlDepths.clear();
-    this.visitedUrlsByCrawl.set(crawlId, new Set());
+    
+    const tempDir = this.getTempDir(crawlId);
+    console.log('Using temp directory:', tempDir);
+
+    // Ensure the directory exists and is empty
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(tempDir, { recursive: true });
+
     const options = new chrome.Options();
-    
-    // Create a unique temp directory for this crawl
-    const tempDir = path.join(os.tmpdir(), `wia11y-${crawlId}`);
-    
     options.addArguments(
       '--headless',
       '--no-sandbox',
       '--disable-dev-shm-usage',
       `--user-data-dir=${tempDir}`,
-      '--disable-gpu'
+      '--disable-gpu',
+      '--disable-software-rasterizer',
+      '--disable-extensions'
     );
 
     let driver;
@@ -102,6 +110,13 @@ class CrawlerService {
       }
     } catch (error) {
       console.error(`Crawl error for ${domain}:`, error);
+      console.error('Chrome options used:', options);
+      console.error('Temp directory status:', {
+        exists: fs.existsSync(tempDir),
+        isDirectory: fs.existsSync(tempDir) ? fs.statSync(tempDir).isDirectory() : false,
+        permissions: fs.existsSync(tempDir) ? fs.statSync(tempDir).mode : null
+      });
+      
       await this.updateCrawlStatus(crawlId, { 
         status: 'failed',
         error: error.message
@@ -110,12 +125,21 @@ class CrawlerService {
       if (driver) {
         try {
           await driver.quit();
-          // Clean up the temp directory
-          require('fs').rmSync(tempDir, { recursive: true, force: true });
-        } catch (error) {
-          console.error('Error cleaning up crawler:', error);
+        } catch (quitError) {
+          console.error('Error quitting driver:', quitError);
         }
       }
+      
+      // Clean up temp directory
+      try {
+        if (fs.existsSync(tempDir)) {
+          fs.rmSync(tempDir, { recursive: true, force: true });
+          console.log('Cleaned up temp directory:', tempDir);
+        }
+      } catch (cleanupError) {
+        console.error('Error cleaning up temp directory:', cleanupError);
+      }
+      
       this.activeJobs.delete(crawlId);
       this.visitedUrlsByCrawl.delete(crawlId);
     }
@@ -559,4 +583,5 @@ class CrawlerService {
   }
 }
 
+module.exports = CrawlerService; 
 module.exports = CrawlerService; 

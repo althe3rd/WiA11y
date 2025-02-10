@@ -44,20 +44,23 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // Add this before starting the server
 function cleanupTempDirs() {
-  const tempDir = os.tmpdir();
-  const files = fs.readdirSync(tempDir);
+  const tempDir = path.join(os.tmpdir(), 'wia11y');
   
-  files.forEach(file => {
-    if (file.startsWith('wia11y-')) {
-      const fullPath = path.join(tempDir, file);
-      try {
-        fs.rmSync(fullPath, { recursive: true, force: true });
-        console.log('Cleaned up temp directory:', fullPath);
-      } catch (error) {
-        console.error('Error cleaning temp directory:', error);
-      }
+  try {
+    if (fs.existsSync(tempDir)) {
+      console.log('Cleaning up WiA11y temp directory:', tempDir);
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      // Recreate the base directory
+      fs.mkdirSync(tempDir, { recursive: true });
+      console.log('WiA11y temp directory cleaned and recreated');
+    } else {
+      // Create the base directory if it doesn't exist
+      fs.mkdirSync(tempDir, { recursive: true });
+      console.log('Created WiA11y temp directory:', tempDir);
     }
-  });
+  } catch (error) {
+    console.error('Error managing temp directories:', error);
+  }
 }
 
 // Add before starting the server
