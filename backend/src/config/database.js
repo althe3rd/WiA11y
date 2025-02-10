@@ -4,15 +4,10 @@ const { MongoClient } = require('mongodb');
 const connectDB = async () => {
   try {
     const mongoUri = process.env.MONGODB_URI;
-    // Force the production URI if not set
-    if (!mongoUri && process.env.NODE_ENV === 'production') {
-      console.log('MONGODB_URI not found, using hardcoded production URI');
-      process.env.MONGODB_URI = 'mongodb+srv://wia11y_admin:ZZyTkJrL34javvag@wia11y.wpyxo.mongodb.net/?retryWrites=true&w=majority&appName=WiA11y';
-    }
-
-    if (!mongoUri) {
-      throw new Error('MONGODB_URI is not defined');
-    }
+    // Always use the production URI in production
+    const uri = process.env.NODE_ENV === 'production' 
+      ? 'mongodb+srv://wia11y_admin:ZZyTkJrL34javvag@wia11y.wpyxo.mongodb.net/?retryWrites=true&w=majority&appName=WiA11y'
+      : mongoUri;
 
     console.log('MongoDB URI check:');
     console.log('- Type:', typeof mongoUri);
@@ -40,7 +35,7 @@ const connectDB = async () => {
     const options = {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000, // Increase timeout
+      serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
       family: 4,  // Force IPv4
       ssl: true,
@@ -64,7 +59,9 @@ const connectDB = async () => {
       console.error('Failed to parse MongoDB URI:', parseError);
     }
 
-    await mongoose.connect(mongoUri, options);
+    console.log('Connecting to MongoDB with URI:', uri.substring(0, 20) + '...');
+
+    await mongoose.connect(uri, options);
     console.log('MongoDB Connected Successfully');
   } catch (err) {
     console.error('MongoDB connection error:', err);
