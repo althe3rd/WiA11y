@@ -15,6 +15,7 @@ const crawlRoutes = require('./routes/crawlRoutes');
 const violationRoutes = require('./routes/violationRoutes');
 const proxyRoutes = require('./routes/proxyRoutes');
 const emailService = require('./services/emailService');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 
@@ -72,6 +73,7 @@ app.use('/api/teams', teamRoutes);
 app.use('/api/crawls', crawlRoutes);
 app.use('/api/violations', violationRoutes);
 app.use('/api/proxy', proxyRoutes);
+app.use('/api/auth', authRoutes);
 
 // Add 404 handler
 app.use((req, res) => {

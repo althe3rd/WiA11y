@@ -6,7 +6,10 @@ import store from './store'
 
 // Create and mount the Vue application
 const app = createApp(App)
-app.use(store)
-app.use(router)
 
-app.mount('#app') 
+// Initialize auth before mounting the app
+store.dispatch('initializeAuth').finally(() => {
+  app.use(store)
+  app.use(router)
+  app.mount('#app')
+}) 

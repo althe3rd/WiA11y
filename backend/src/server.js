@@ -22,8 +22,15 @@ mongoose.connection.on('disconnected', () => {
   console.log('MongoDB disconnected');
 });
 
+// Add this before the mongoose.connect call
+const dbName = process.env.NODE_ENV === 'production' 
+  ? 'accessibility-crawler'
+  : 'accessibility-crawler-dev';
+
 // Connect with debug logging
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(process.env.MONGODB_URI, {
+  dbName: dbName  // Explicitly set the database name
+})
   .then(() => {
     console.log('MongoDB connection successful');
     console.log('Connected to database:', mongoose.connection.db.databaseName);

@@ -3,22 +3,44 @@ const User = require('../models/user');
 
 const auth = async (req, res, next) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    // Get token from header
+    const authHeader = req.header('Authorization');
+    if (!authHeader) {
+      return res.status(401).json({ message: 'No token, authorization denied' });
+    }
+
+    // Check if it's a Bearer token
+    const token = authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7) 
+      : authHeader;
+
     if (!token) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return res.status(401).json({ message: 'No token, authorization denied' });
     }
 
+    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Get full user info from database
     const user = await User.findById(decoded.userId);
-
     if (!user) {
-      return res.status(401).json({ error: 'User not found' });
+      return res.status(401).json({ message: 'User not found' });
     }
-
+    
+    // Add complete user object to request
     req.user = user;
+    
+    console.log('Auth middleware:', {
+      token: token.substring(0, 20) + '...',
+      userId: user._id,
+      role: user.role,
+      teams: user.teams
+    });
+
     next();
-  } catch (error) {
-    res.status(401).json({ error: 'Please authenticate' });
+  } catch (err) {
+    console.error('Auth middleware error:', err);
+    res.status(401).json({ message: 'Token is not valid' });
   }
 };
 

@@ -107,6 +107,10 @@ export default {
       formatRole,
       logout
     };
+  },
+  async created() {
+    // Change this from checkAuth to initializeAuth if it exists
+    await this.$store.dispatch('initializeAuth');
   }
 }
 </script>

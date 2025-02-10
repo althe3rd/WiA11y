@@ -1,10 +1,11 @@
 import { createStore } from 'vuex';
 import api from '../api/axios';
+import axios from 'axios';
 
 export default createStore({
   state: {
     user: null,
-    token: localStorage.getItem('token') || null,
+    token: localStorage.getItem('token'),
     teams: [],
     currentTeam: null
   },
@@ -74,6 +75,22 @@ export default createStore({
     }
   },
   actions: {
+    async initializeAuth({ commit, dispatch }) {
+      const token = localStorage.getItem('token');
+      if (token) {
+        commit('setToken', token);
+        try {
+          const response = await api.get('/api/auth/me');
+          commit('setUser', response.data);
+          // Load user's teams after authentication
+          await dispatch('fetchTeams');
+        } catch (error) {
+          console.error('Session restoration failed:', error);
+          commit('setToken', null);
+          commit('setUser', null);
+        }
+      }
+    },
     async login({ commit }, credentials) {
       try {
         const response = await api.post('/api/users/login', credentials);

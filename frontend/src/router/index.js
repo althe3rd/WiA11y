@@ -18,12 +18,12 @@ const routes = [
   },
   {
     path: '/login',
-    name: 'Login',
+    name: 'login',
     component: Login
   },
   {
     path: '/register',
-    name: 'Register',
+    name: 'register',
     component: () => import('../views/Register.vue')
   },
   {
@@ -68,7 +68,7 @@ const routes = [
   },
   {
     path: '/forgot-password',
-    name: 'ForgotPassword',
+    name: 'forgot-password',
     component: ForgotPassword
   },
   {
@@ -85,15 +85,17 @@ const router = createRouter({
 
 // Navigation guard
 router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token');
-  const user = JSON.parse(localStorage.getItem('user'));
+  const isAuthenticated = store.state.token != null;
   
-  if (to.meta.requiresAuth && !token) {
-    next('/login');
-  } else if (to.meta.requiresNetworkAdmin && user?.role !== 'network_admin') {
-    next('/dashboard');
-  } else if (to.meta.requiresTeamAdmin && !['network_admin', 'team_admin'].includes(user?.role)) {
-    next('/dashboard');
+  // Add public routes that don't require authentication
+  const publicRoutes = ['login', 'register', 'forgot-password'];
+  
+  if (!isAuthenticated && !publicRoutes.includes(to.name)) {
+    // Redirect to login if trying to access protected route
+    next({ name: 'login', query: { redirect: to.fullPath } });
+  } else if (to.name === 'login' && isAuthenticated) {
+    // If user is already authenticated and tries to access login, redirect to dashboard
+    next({ name: 'Dashboard' });
   } else {
     next();
   }
