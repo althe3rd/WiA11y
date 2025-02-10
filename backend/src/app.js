@@ -32,20 +32,30 @@ console.log('Environment variables:', {
 app.use(cors({
   origin: (origin, callback) => {
     console.log('Request origin:', origin);
-    console.log('Allowed origin:', process.env.CORS_ORIGIN);
     
-    // For development, allow localhost:8080
-    const allowedOrigins = [process.env.CORS_ORIGIN, 'http://localhost:8080'];
+    // Allow these origins
+    const allowedOrigins = [
+      process.env.CORS_ORIGIN,
+      'https://wia11y.netlify.app',
+      'https://wai11y-api.heroiccloud.com',
+      'http://localhost:8080'
+    ];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.log('Origin not allowed:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Add CORS preflight
+app.options('*', cors());
 
 app.use(express.json());
 
