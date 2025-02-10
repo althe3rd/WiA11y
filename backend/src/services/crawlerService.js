@@ -70,6 +70,7 @@ class CrawlerService {
     console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
     
     const options = new chrome.Options();
+    let tempDir;  // Declare tempDir outside the if block
     
     if (process.env.NODE_ENV === 'production') {
       // In production, don't use user-data-dir at all
@@ -97,7 +98,7 @@ class CrawlerService {
       );
     } else {
       // In development, use temp directory
-      const tempDir = this.getTempDir(crawlId);
+      tempDir = this.getTempDir(crawlId);
       console.log('Using temp directory:', tempDir);
 
       if (fs.existsSync(tempDir)) {
@@ -162,11 +163,13 @@ class CrawlerService {
     } catch (error) {
       console.error(`Crawl error for ${domain}:`, error);
       console.error('Chrome options used:', options);
-      console.error('Temp directory status:', {
-        exists: fs.existsSync(tempDir),
-        isDirectory: fs.existsSync(tempDir) ? fs.statSync(tempDir).isDirectory() : false,
-        permissions: fs.existsSync(tempDir) ? fs.statSync(tempDir).mode : null
-      });
+      if (tempDir) {  // Only log temp directory status if it exists
+        console.error('Temp directory status:', {
+          exists: fs.existsSync(tempDir),
+          isDirectory: fs.existsSync(tempDir) ? fs.statSync(tempDir).isDirectory() : false,
+          permissions: fs.existsSync(tempDir) ? fs.statSync(tempDir).mode : null
+        });
+      }
       
       await this.updateCrawlStatus(crawlId, { 
         status: 'failed',
@@ -181,14 +184,16 @@ class CrawlerService {
         }
       }
       
-      // Clean up temp directory
-      try {
-        if (fs.existsSync(tempDir)) {
-          fs.rmSync(tempDir, { recursive: true, force: true });
-          console.log('Cleaned up temp directory:', tempDir);
+      // Clean up temp directory only if it was created
+      if (tempDir) {
+        try {
+          if (fs.existsSync(tempDir)) {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+            console.log('Cleaned up temp directory:', tempDir);
+          }
+        } catch (cleanupError) {
+          console.error('Error cleaning up temp directory:', cleanupError);
         }
-      } catch (cleanupError) {
-        console.error('Error cleaning up temp directory:', cleanupError);
       }
       
       this.activeJobs.delete(crawlId);
