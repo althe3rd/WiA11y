@@ -7,6 +7,15 @@ const crawlRoutes = require('./routes/crawlRoutes');
 const violationRoutes = require('./routes/violationRoutes');
 const proxyRoutes = require('./routes/proxyRoutes');
 
+// Debug environment variables at startup
+console.log('==== Application Startup ====');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('All environment variables:', {
+  PORT: process.env.PORT,
+  MONGODB_URI: process.env.MONGODB_URI ? 'exists' : 'missing',
+  CORS_ORIGIN: process.env.CORS_ORIGIN,
+});
+
 const app = express();
 
 // Debug environment after loading
