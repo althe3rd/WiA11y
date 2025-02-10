@@ -1,27 +1,43 @@
 const mongoose = require('mongoose');
 const app = require('./app');
 
-const port = process.env.PORT || 3000;
+// Add connection debugging
+mongoose.connection.on('connected', () => {
+  console.log('MongoDB connected to:', mongoose.connection.name);
+});
 
-// Add connection error handling
 mongoose.connection.on('error', (err) => {
   console.error('MongoDB connection error:', err);
 });
 
-// Add connection success handling
-mongoose.connection.once('open', () => {
-  console.log('MongoDB connected successfully');
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected');
 });
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).catch(error => {
-  console.error('MongoDB connection failed:', error);
-});
+// Connect with debug logging
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log('MongoDB connection successful');
+    // Log database stats
+    return mongoose.connection.db.stats();
+  })
+  .then((stats) => {
+    console.log('Database stats:', {
+      database: mongoose.connection.name,
+      collections: stats.collections,
+      objects: stats.objects
+    });
+    // List all collections
+    return mongoose.connection.db.listCollections().toArray();
+  })
+  .then((collections) => {
+    console.log('Collections:', collections.map(c => c.name));
+  })
+  .catch((err) => {
+    console.error('MongoDB connection error:', err);
+  });
 
-// Start the server
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 }); 

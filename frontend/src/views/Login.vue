@@ -25,8 +25,13 @@
           {{ error }}
         </div>
         <button type="submit">Login</button>
-        <div class="register-link">
-          Don't have an account? <router-link to="/register">Register</router-link>
+        <div class="links">
+          <div class="register-link">
+            Don't have an account? <router-link to="/register">Register</router-link>
+          </div>
+          <div class="forgot-password-link">
+            <router-link to="/forgot-password">Forgot Password?</router-link>
+          </div>
         </div>
       </form>
     </div>
@@ -120,12 +125,27 @@ button {
   margin-bottom: 1rem;
 }
 
+.links {
+  margin-top: 1rem;
+  text-align: center;
+}
+
 .register-link {
   text-align: center;
   font-size: 0.9em;
 }
 
 .register-link a {
+  color: #4CAF50;
+  text-decoration: none;
+}
+
+.forgot-password-link {
+  margin-top: 0.5rem;
+  font-size: 0.9em;
+}
+
+.forgot-password-link a {
   color: #4CAF50;
   text-decoration: none;
 }

@@ -7,6 +7,8 @@ import Users from '../views/Users.vue';
 import ScanResults from '../views/ScanResults.vue';
 import PagePreview from '../views/PagePreview.vue';
 import AllScans from '../views/AllScans.vue';
+import ForgotPassword from '../views/ForgotPassword.vue';
+import ResetPassword from '../views/ResetPassword.vue';
 import store from '../store';
 
 const routes = [
@@ -63,6 +65,16 @@ const routes = [
     name: 'AllScans',
     component: AllScans,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: ForgotPassword
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: ResetPassword
   }
 ];
 

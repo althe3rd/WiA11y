@@ -1,4 +1,8 @@
-require('dotenv').config();
+require('dotenv').config({
+  path: process.env.NODE_ENV === 'production' 
+    ? '.env.production'
+    : '.env.development'
+});
 const express = require('express');
 const cors = require('cors');
 const userRoutes = require('./routes/userRoutes');
@@ -6,12 +10,33 @@ const teamRoutes = require('./routes/teamRoutes');
 const crawlRoutes = require('./routes/crawlRoutes');
 const violationRoutes = require('./routes/violationRoutes');
 const proxyRoutes = require('./routes/proxyRoutes');
+const emailService = require('./services/emailService');
 
 const app = express();
 
+// Log environment variables for debugging
+console.log('Loading environment:', process.env.NODE_ENV);
+console.log('Environment variables:', {
+  NODE_ENV: process.env.NODE_ENV,
+  CORS_ORIGIN: process.env.CORS_ORIGIN,
+  PORT: process.env.PORT,
+  MONGODB_URI: process.env.MONGODB_URI
+});
+
 // Update CORS configuration
 app.use(cors({
-  origin: process.env.CORS_ORIGIN,
+  origin: (origin, callback) => {
+    console.log('Request origin:', origin);
+    console.log('Allowed origin:', process.env.CORS_ORIGIN);
+    
+    // For development, allow localhost:8080
+    const allowedOrigins = [process.env.CORS_ORIGIN, 'http://localhost:8080'];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -62,5 +87,18 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Something broke!' });
 });
+
+// Verify email service connection
+emailService.verifyConnection()
+  .then(isReady => {
+    if (isReady) {
+      console.log('Email service is configured and ready');
+    } else {
+      console.error('Email service is not ready');
+    }
+  })
+  .catch(error => {
+    console.error('Failed to verify email service:', error);
+  });
 
 module.exports = app; 
