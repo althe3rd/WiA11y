@@ -92,13 +92,10 @@ class CrawlerService {
     console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
     
     const options = new chrome.Options();
-    let userDataDir; // Declare at the top level so it's available in finally block
+    let userDataDir = null; // Declare at function scope for cleanup
 
     if (process.env.NODE_ENV === 'production') {
-      await this.ensureTempfsDirectory();
-      userDataDir = path.join(CHROME_TMPFS_DIR, `chrome-${crawlId}-${Date.now()}`);
-      console.log('Using tmpfs directory:', userDataDir);
-
+      // In production, use a completely temporary profile
       options.addArguments(
         '--headless=new',
         '--no-sandbox',
@@ -120,11 +117,13 @@ class CrawlerService {
         '--disable-translate',
         '--metrics-recording-only',
         '--safebrowsing-disable-auto-update',
-        `--user-data-dir=${userDataDir}`
+        '--incognito',  // Use incognito mode
+        '--disk-cache-dir=/dev/null',  // Disable disk cache
+        '--disk-cache-size=1'  // Minimal cache size
       );
     } else {
-      // In development, use temp directory as before
-      userDataDir = path.join(os.tmpdir(), 'wia11y', crawlId);
+      // Development code stays the same
+      userDataDir = path.join(os.tmpdir(), 'wia11y', crawlId.toString()); // Convert ObjectId to string
       
       if (fs.existsSync(userDataDir)) {
         fs.rmSync(userDataDir, { recursive: true, force: true });
@@ -202,8 +201,8 @@ class CrawlerService {
         }
       }
       
-      // Clean up the user data directory
-      if (userDataDir) {  // Now userDataDir is always defined
+      // Clean up the user data directory if it exists
+      if (userDataDir) {
         try {
           if (fs.existsSync(userDataDir)) {
             fs.rmSync(userDataDir, { recursive: true, force: true });
