@@ -72,6 +72,13 @@ const crawlSchema = new mongoose.Schema({
   },
   startedAt: Date,
   completedAt: Date,
+  progress: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  currentUrl: String,
 }, {
   timestamps: true
 });

@@ -185,6 +185,15 @@ export default createStore({
         console.error('Failed to update team:', error);
         throw error.response?.data || error;
       }
+    },
+    async fetchCrawlProgress({ commit }, crawlId) {
+      try {
+        const { data } = await api.get(`/api/crawls/${crawlId}/progress`);
+        return data;
+      } catch (error) {
+        console.error('Error fetching crawl progress:', error);
+        throw error;
+      }
     }
   },
   getters: {

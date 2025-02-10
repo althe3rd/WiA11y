@@ -106,6 +106,7 @@ import { ref } from 'vue';
 import AccessibilityTrendGraph from './AccessibilityTrendGraph.vue';
 import LoadingSpinner from './LoadingSpinner.vue';
 import { useRouter } from 'vue-router';
+import CrawlProgress from './CrawlProgress.vue';
 
 export default {
   name: 'CrawlHistory',
@@ -125,7 +126,8 @@ export default {
   },
   components: {
     AccessibilityTrendGraph,
-    LoadingSpinner
+    LoadingSpinner,
+    CrawlProgress
   },
   setup() {
     const router = useRouter();
@@ -400,6 +402,16 @@ export default {
       if (score >= 70) return 'score-good';
       if (score >= 50) return 'score-fair';
       return 'score-poor';
+    },
+    formatStatus(status) {
+      const statusMap = {
+        completed: 'Completed',
+        in_progress: 'In Progress',
+        failed: 'Failed',
+        cancelled: 'Cancelled',
+        pending: 'Pending'
+      }
+      return statusMap[status] || status
     }
   },
   created() {

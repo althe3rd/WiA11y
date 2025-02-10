@@ -168,4 +168,23 @@ router.post('/:id/cancel', crawlController.cancelCrawl);
 // Delete crawl
 router.delete('/:id', crawlController.deleteCrawl);
 
+// Get crawl progress
+router.get('/:id/progress', async (req, res) => {
+  try {
+    const crawl = await Crawl.findById(req.params.id);
+    if (!crawl) {
+      return res.status(404).json({ message: 'Crawl not found' });
+    }
+    
+    res.json({
+      progress: crawl.progress,
+      currentUrl: crawl.currentUrl,
+      status: crawl.status
+    });
+  } catch (error) {
+    console.error('Error fetching crawl progress:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router; 

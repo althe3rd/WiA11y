@@ -397,6 +397,17 @@ class CrawlerService {
       // Don't process queue here - it creates recursion
       await this.queueLinks(links, url, crawl);
       
+      // Update progress after each page
+      const progress = (updatedCrawl.pagesScanned / updatedCrawl.pageLimit) * 100;
+      
+      // Update crawl with progress
+      await Crawl.findByIdAndUpdate(crawlId, { 
+        $set: { 
+          progress: Math.min(progress, 100),
+          currentUrl: url
+        }
+      });
+      
       // Let processQueue handle the next URL
       return;
     } catch (error) {

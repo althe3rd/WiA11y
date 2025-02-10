@@ -8,7 +8,7 @@
       <router-link to="/scans" class="view-all-link">View All Scanned Sites →</router-link>
     </div>
     
-    <p>This is the dashboard for the web accessibility scanner.</p>
+    <h2>Filters</h2>
     <div class="filters">
       <div class="filter-group">
         <label for="teamFilter">Team</label>

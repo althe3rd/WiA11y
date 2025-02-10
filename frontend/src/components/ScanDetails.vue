@@ -439,10 +439,10 @@ export default {
   color: white;
 }
 
-.impact-badge.critical { background-color: #dc3545; }
-.impact-badge.serious { background-color: #fd7e14; }
+.impact-badge.critical { background-color: #dc3545; color: #fff;}
+.impact-badge.serious { background-color: #fd7e14; color: #fff; }
 .impact-badge.moderate { background-color: #ffc107; color: black; }
-.impact-badge.minor { background-color: #6c757d; }
+.impact-badge.minor { background-color: #6c757d; color: #fff; }
 
 .help-link {
   color: #0d6efd;
