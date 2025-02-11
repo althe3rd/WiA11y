@@ -74,20 +74,39 @@ export default createStore({
   },
   actions: {
     async initializeAuth({ commit, dispatch }) {
-      const token = localStorage.getItem('token');
-      if (token) {
-        commit('setToken', token);
-        try {
-          const response = await api.get('/api/auth/me');
-          commit('setUser', response.data);
-          await dispatch('fetchTeams');
-        } catch (error) {
-          console.error('Session restoration failed:', error);
-          commit('setToken', null);
-          commit('setUser', null);
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+      try {
+        const token = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        
+        console.log('Initializing auth state:', {
+          hasToken: !!token,
+          hasStoredUser: !!storedUser
+        });
+
+        if (token) {
+          commit('setToken', token);
+          
+          // First restore stored user to prevent flash
+          if (storedUser) {
+            commit('setUser', JSON.parse(storedUser));
+          }
+
+          // Then verify with server
+          try {
+            const response = await api.get('/api/auth/me');
+            console.log('Session restored successfully:', response.data);
+            commit('setUser', response.data);
+          } catch (error) {
+            console.error('Failed to restore session:', error);
+            // Clear invalid session
+            commit('setToken', null);
+            commit('setUser', null);
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+          }
         }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
       }
     },
     async login({ commit, dispatch }, credentials) {

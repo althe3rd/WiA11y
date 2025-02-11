@@ -17,8 +17,14 @@ const instance = axios.create({
 instance.interceptors.response.use(
   response => response,
   error => {
+    console.error('API Error:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+
     if (error.response?.status === 401) {
-      // Clear auth state on unauthorized response
+      console.log('Unauthorized response, clearing auth state');
       store.commit('setToken', null);
       store.commit('setUser', null);
       localStorage.removeItem('token');
@@ -32,13 +38,18 @@ instance.interceptors.response.use(
 // Add request interceptor to add token
 instance.interceptors.request.use(
   config => {
+    console.log('Request URL:', config.url);
     const token = localStorage.getItem('token');
+    console.log('Token exists in interceptor:', !!token);
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('Adding token to request:', config.url);
     }
     return config;
   },
   error => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );

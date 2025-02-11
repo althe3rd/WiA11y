@@ -109,7 +109,7 @@ export default {
     };
   },
   async created() {
-    // Change this from checkAuth to initializeAuth if it exists
+    console.log('App created, initializing auth...');
     await this.$store.dispatch('initializeAuth');
   }
 }
