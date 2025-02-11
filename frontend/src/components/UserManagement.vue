@@ -112,7 +112,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import api from '../api/axios';  // Import the configured instance
 
 export default {
   name: 'UserManagement',
@@ -146,12 +146,7 @@ export default {
     },
     async fetchUsers() {
       try {
-        const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:3000/api/users/all', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const response = await api.get('/api/users/all');  // Use configured instance
         this.users = response.data;
       } catch (error) {
         console.error('Failed to fetch users:', error);
@@ -160,12 +155,7 @@ export default {
     },
     async fetchTeams() {
       try {
-        const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:3000/api/teams', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const response = await api.get('/api/teams');  // Use configured instance
         this.availableTeams = response.data;
       } catch (error) {
         console.error('Failed to fetch teams:', error);
@@ -200,7 +190,6 @@ export default {
     },
     async submitUser() {
       try {
-        const token = localStorage.getItem('token');
         if (this.editingUser) {
           // Update existing user
           const updateData = {
@@ -211,18 +200,10 @@ export default {
           if (this.userForm.password) {
             updateData.password = this.userForm.password;
           }
-          await axios.patch(`http://localhost:3000/api/users/${this.editingUser._id}`, updateData, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
+          await api.patch(`/api/users/${this.editingUser._id}`, updateData);  // Use configured instance
         } else {
           // Create new user
-          await axios.post('http://localhost:3000/api/users/create', this.userForm, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
+          await api.post('/api/users/create', this.userForm);  // Use configured instance
         }
         
         this.closeModal();
@@ -243,12 +224,7 @@ export default {
       }
       
       try {
-        const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:3000/api/users/${user._id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        await api.delete(`/api/users/${user._id}`);  // Use configured instance
         
         // Remove user from local state
         this.users = this.users.filter(u => u._id !== user._id);
