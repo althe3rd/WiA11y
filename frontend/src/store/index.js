@@ -111,19 +111,32 @@ export default createStore({
     },
     async login({ commit, dispatch }, credentials) {
       try {
+        console.log('Attempting login...');
         const response = await api.post('/api/users/login', credentials);
         const { token, user } = response.data;
         
+        console.log('Login successful, storing session...');
+        
+        // Store in localStorage
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(user));
         
-        commit('setUser', user);
+        // Update store
         commit('setToken', token);
+        commit('setUser', user);
         
+        // Fetch additional data
+        console.log('Fetching user teams...');
         await dispatch('fetchTeams');
         
         return response.data;
       } catch (error) {
+        console.error('Login failed:', error);
+        // Clear any partial session data
+        commit('setToken', null);
+        commit('setUser', null);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         throw error;
       }
     },

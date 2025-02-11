@@ -16,19 +16,16 @@ const instance = axios.create({
 // Add response interceptor to handle token expiration
 instance.interceptors.response.use(
   response => response,
-  error => {
-    console.error('API Error:', {
+  async error => {
+    console.error('Response error:', {
       url: error.config?.url,
       status: error.response?.status,
       data: error.response?.data
     });
 
     if (error.response?.status === 401) {
-      console.log('Unauthorized response, clearing auth state');
-      store.commit('setToken', null);
-      store.commit('setUser', null);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      console.log('Session expired, logging out...');
+      store.dispatch('logout');
       router.push('/login');
     }
     return Promise.reject(error);
@@ -38,13 +35,15 @@ instance.interceptors.response.use(
 // Add request interceptor to add token
 instance.interceptors.request.use(
   config => {
-    console.log('Request URL:', config.url);
     const token = localStorage.getItem('token');
-    console.log('Token exists in interceptor:', !!token);
+    console.log('Request:', {
+      url: config.url,
+      hasToken: !!token,
+      method: config.method
+    });
     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('Adding token to request:', config.url);
     }
     return config;
   },

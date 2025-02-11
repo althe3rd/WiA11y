@@ -84,17 +84,26 @@ const router = createRouter({
 });
 
 // Navigation guard
-router.beforeEach((to, from, next) => {
-  const isAuthenticated = store.state.token != null;
+router.beforeEach(async (to, from, next) => {
+  console.log('Route navigation:', { to: to.path, from: from.path });
   
-  // Add public routes that don't require authentication
+  const isAuthenticated = store.state.token != null;
   const publicRoutes = ['login', 'register', 'forgot-password'];
   
+  console.log('Auth check:', {
+    isAuthenticated,
+    requiresAuth: !publicRoutes.includes(to.name),
+    route: to.name
+  });
+  
   if (!isAuthenticated && !publicRoutes.includes(to.name)) {
-    // Redirect to login if trying to access protected route
-    next({ name: 'login', query: { redirect: to.fullPath } });
-  } else if (to.name === 'login' && isAuthenticated) {
-    // If user is already authenticated and tries to access login, redirect to dashboard
+    console.log('Unauthenticated access to protected route, redirecting to login');
+    next({ 
+      name: 'login', 
+      query: { redirect: to.fullPath }
+    });
+  } else if (isAuthenticated && publicRoutes.includes(to.name)) {
+    console.log('Authenticated user accessing public route, redirecting to dashboard');
     next({ name: 'Dashboard' });
   } else {
     next();

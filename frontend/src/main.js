@@ -4,11 +4,19 @@ import App from './App.vue'
 import router from './router'
 import store from './store'
 
-// Create and mount the Vue application
+// Create the Vue application
 const app = createApp(App)
 
 // Initialize auth before mounting the app
-store.dispatch('initializeAuth').finally(() => {
+console.log('Initializing application...');
+store.dispatch('initializeAuth').then(() => {
+  console.log('Auth initialized, mounting app...');
+  app.use(store)
+  app.use(router)
+  app.mount('#app')
+}).catch(error => {
+  console.error('Failed to initialize auth:', error);
+  // Mount app anyway to show login screen
   app.use(store)
   app.use(router)
   app.mount('#app')
