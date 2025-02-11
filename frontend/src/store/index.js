@@ -60,10 +60,8 @@ export default createStore({
     setToken(state, token) {
       state.token = token;
       if (token) {
-        localStorage.setItem('token', token);
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       } else {
-        localStorage.removeItem('token');
         delete api.defaults.headers.common['Authorization'];
       }
     },
@@ -82,21 +80,29 @@ export default createStore({
         try {
           const response = await api.get('/api/auth/me');
           commit('setUser', response.data);
-          // Load user's teams after authentication
           await dispatch('fetchTeams');
         } catch (error) {
           console.error('Session restoration failed:', error);
           commit('setToken', null);
           commit('setUser', null);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
         }
       }
     },
-    async login({ commit }, credentials) {
+    async login({ commit, dispatch }, credentials) {
       try {
         const response = await api.post('/api/users/login', credentials);
-        commit('setUser', response.data.user);
-        commit('setToken', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        const { token, user } = response.data;
+        
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        commit('setUser', user);
+        commit('setToken', token);
+        
+        await dispatch('fetchTeams');
+        
         return response.data;
       } catch (error) {
         throw error;
@@ -105,9 +111,9 @@ export default createStore({
     async logout({ commit }) {
       commit('setUser', null);
       commit('setToken', null);
+      localStorage.removeItem('token');
       localStorage.removeItem('user');
       commit('setTeams', []);
-      commit('setCurrentTeam', null);
     },
     async fetchTeams({ commit }) {
       try {
