@@ -434,7 +434,7 @@ export default {
 .crawl-list {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 10px;
 }
 
 .crawl-item {
