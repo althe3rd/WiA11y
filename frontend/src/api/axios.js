@@ -13,17 +13,23 @@ const instance = axios.create({
   }
 });
 
-// Add response interceptor to handle token expiration
+// Add response interceptor with better error handling
 instance.interceptors.response.use(
   response => response,
   async error => {
     console.error('Response error:', {
       url: error.config?.url,
       status: error.response?.status,
-      data: error.response?.data
+      data: error.response?.data,
+      message: error.message
     });
 
-    if (error.response?.status === 401) {
+    // Handle different error types
+    if (error.response?.status === 404 && error.config?.url === '/api/auth/me') {
+      console.log('Auth endpoint not found, logging out...');
+      store.dispatch('logout');
+      router.push('/login');
+    } else if (error.response?.status === 401) {
       console.log('Session expired, logging out...');
       store.dispatch('logout');
       router.push('/login');
