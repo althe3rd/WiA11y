@@ -12,8 +12,6 @@ const fs = require('fs');
 const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
-const Redis = require('ioredis');
-const { promisify } = require('util');
 
 const CHROME_TMPFS_DIR = '/dev/shm/chrome-tmp';
 
@@ -25,14 +23,6 @@ class CrawlerService {
     this.urlDepths = new Map(); // Track URL depths
     this.baseUrl = '';  // Store the base URL (will be set after first successful connection)
     this.visitedUrlsByCrawl = new Map(); // Track visited URLs per crawl
-    
-    // Initialize Redis in production
-    if (process.env.NODE_ENV === 'production') {
-      this.redis = new Redis(process.env.REDIS_URL);
-      this.redis.on('error', (err) => console.error('Redis error:', err));
-    }
-    
-    this.visitedUrls = new Map(); // Fallback for development
   }
 
   async updateCrawlStatus(crawlId, updates) {
@@ -790,53 +780,6 @@ class CrawlerService {
     } catch (error) {
       console.error(`Error calculating depth for ${url}:`, error);
       return 1;
-    }
-  }
-
-  async initializeCrawl(crawlId) {
-    if (this.redis) {
-      await this.redis.del(`visited:${crawlId}`);
-    } else {
-      this.visitedUrls.set(crawlId, new Set());
-    }
-  }
-
-  async markUrlVisited(crawlId, url) {
-    if (this.redis) {
-      await this.redis.sadd(`visited:${crawlId}`, url);
-    } else {
-      const visited = this.visitedUrls.get(crawlId);
-      if (visited) {
-        visited.add(url);
-      } else {
-        this.visitedUrls.set(crawlId, new Set([url]));
-      }
-    }
-  }
-
-  async hasVisitedUrl(crawlId, url) {
-    if (this.redis) {
-      return await this.redis.sismember(`visited:${crawlId}`, url);
-    } else {
-      const visited = this.visitedUrls.get(crawlId);
-      return visited ? visited.has(url) : false;
-    }
-  }
-
-  async getVisitedUrls(crawlId) {
-    if (this.redis) {
-      return await this.redis.smembers(`visited:${crawlId}`);
-    } else {
-      const visited = this.visitedUrls.get(crawlId);
-      return visited ? Array.from(visited) : [];
-    }
-  }
-
-  async cleanupCrawl(crawlId) {
-    if (this.redis) {
-      await this.redis.del(`visited:${crawlId}`);
-    } else {
-      this.visitedUrls.delete(crawlId);
     }
   }
 }

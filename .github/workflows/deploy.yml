@@ -21,18 +21,14 @@ jobs:
         username: ${{ secrets.SERVER_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          # Install Redis if not already installed
-          if ! command -v redis-cli &> /dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y redis-server
-            sudo systemctl enable redis-server
-            sudo systemctl start redis-server
-          fi
-          
           cd /var/www/WiA11y/backend
           git pull
           npm install
-          
+          # Verify routes are registered
+          echo "Checking registered routes..."
+          node -e "const app = require('./src/app.js'); console.log('Registered routes:', app._router.stack.filter(r => r.route).map(r => r.route.path))"
+          # Delete existing process if it exists
+          pm2 delete wia11y || true
           # Start with production environment
           NODE_ENV=production \
           MONGODB_URI="${{ secrets.MONGODB_URI }}" \
@@ -44,7 +40,6 @@ jobs:
           SMTP_PASS="${{ secrets.SMTP_PASS }}" \
           SMTP_FROM="${{ secrets.SMTP_FROM }}" \
           FRONTEND_URL="https://wia11y.netlify.app" \
-          REDIS_URL="redis://localhost:6379" \
           pm2 start src/server.js \
             --name "wia11y" \
             --time \

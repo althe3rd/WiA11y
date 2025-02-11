@@ -5,7 +5,6 @@ const { auth } = require('../middleware/auth');
 const Crawl = require('../models/crawl');
 const Team = require('../models/team');
 const Violation = require('../models/violation');
-const CrawlerService = require('../services/crawlerService');
 
 console.log('Setting up crawl routes');
 
@@ -161,34 +160,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new crawl
-router.post('/', async (req, res) => {
-  try {
-    // ... existing validation code ...
-
-    const crawlerService = new CrawlerService();
-    
-    // Initialize crawl state
-    await crawlerService.initializeCrawl(crawl._id);
-
-    // Start crawling
-    crawl.status = 'in_progress';
-    await crawl.save();
-
-    // Process in background
-    processCrawl(crawl._id, crawlerService).catch(error => {
-      console.error('Crawl processing error:', error);
-      Crawl.findByIdAndUpdate(crawl._id, { 
-        status: 'failed',
-        error: error.message
-      }).exec();
-    });
-
-    res.json(crawl);
-  } catch (error) {
-    console.error('Error starting crawl:', error);
-    res.status(500).json({ error: 'Failed to start crawl' });
-  }
-});
+router.post('/', crawlController.createCrawl);
 
 // Cancel crawl
 router.post('/:id/cancel', crawlController.cancelCrawl);
