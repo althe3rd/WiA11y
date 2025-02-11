@@ -38,4 +38,17 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+// Add this at the top of your auth routes
+router.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok',
+    routes: router.stack
+      .filter(r => r.route)
+      .map(r => ({
+        path: r.route.path,
+        methods: Object.keys(r.route.methods)
+      }))
+  });
+});
+
 module.exports = router; 
