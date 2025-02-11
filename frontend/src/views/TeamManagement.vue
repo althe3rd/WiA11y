@@ -89,9 +89,9 @@
 <script>
 import { ref, onMounted } from 'vue';
 import { useStore } from 'vuex';
+import api from '../api/axios';  // Import the configured instance
 import TeamModal from '../components/TeamModal.vue';
 import MemberModal from '../components/MemberModal.vue';
-import axios from 'axios';
 
 export default {
   name: 'TeamManagement',
@@ -113,13 +113,8 @@ export default {
       try {
         loading.value = true;
         error.value = null;
-        const token = localStorage.getItem('token');
         const endpoint = store.getters.isNetworkAdmin ? '/api/teams' : '/api/teams/managed';
-        const response = await axios.get(`http://localhost:3000${endpoint}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const response = await api.get(endpoint);  // Use configured instance
         console.log('Teams data:', response.data);
         teams.value = response.data;
       } catch (err) {
@@ -173,6 +168,7 @@ export default {
       selectedTeam,
       loading,
       error,
+      fetchTeams,
       editTeam,
       manageMembers,
       closeTeamModal,
