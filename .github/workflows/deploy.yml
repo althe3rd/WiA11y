@@ -2,7 +2,7 @@ name: Deploy Backend
 
 on:
   push:
-    branches: [ primary ]
+    branches: [ main ]
     paths:
       - '.github/workflows/**'
       - 'backend/**'
