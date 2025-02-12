@@ -7,7 +7,8 @@ export default createStore({
     user: null,
     token: localStorage.getItem('token'),
     teams: [],
-    currentTeam: null
+    currentTeam: null,
+    activeCrawls: []
   },
   modules: {
     crawls: {
@@ -70,6 +71,14 @@ export default createStore({
     },
     setCurrentTeam(state, team) {
       state.currentTeam = team;
+    },
+    ADD_ACTIVE_CRAWL(state, crawlId) {
+      if (!state.activeCrawls.includes(crawlId)) {
+        state.activeCrawls.push(crawlId);
+      }
+    },
+    REMOVE_ACTIVE_CRAWL(state, crawlId) {
+      state.activeCrawls = state.activeCrawls.filter(id => id !== crawlId);
     }
   },
   actions: {
@@ -236,6 +245,19 @@ export default createStore({
         console.error('Error fetching crawl progress:', error);
         throw error;
       }
+    },
+    async startCrawl({ commit }, crawlParams) {
+      const response = await api.post('/crawls', crawlParams);
+      commit('ADD_ACTIVE_CRAWL', response.data._id);
+      return response.data;
+    },
+    async getCrawlStatus({ commit }, crawlId) {
+      const response = await api.get(`/crawls/${crawlId}/progress`);
+      const status = response.data.status;
+      if (status !== 'in_progress') {
+        commit('REMOVE_ACTIVE_CRAWL', crawlId);
+      }
+      return status;
     }
   },
   getters: {

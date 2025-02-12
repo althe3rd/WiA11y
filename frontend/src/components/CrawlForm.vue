@@ -85,8 +85,8 @@
       
 
       <div class="button-group">
-        <button type="submit" :disabled="isSubmitting" class="submit-button">
-          <span v-if="!isSubmitting">Start Scan</span>
+        <button type="submit" :disabled="isSubmitting || isCrawling" class="submit-button">
+          <span v-if="!isSubmitting && !isCrawling">Start Scan</span>
           <div v-else class="spinner"></div>
         </button>
         <button 
@@ -206,6 +206,9 @@ export default {
           wcagVersion: '2.1',
           wcagLevel: 'AA'
         };
+
+        // Start polling for crawl status
+        pollCrawlStatus();
       } catch (error) {
         console.error('Failed to create crawl:', error);
         alert(error.message || error.error || 'Failed to create crawl');
@@ -251,6 +254,26 @@ export default {
       }
     };
 
+    const isCrawling = computed(() => {
+      return currentCrawlId.value && store.state.activeCrawls.includes(currentCrawlId.value);
+    });
+
+    const pollCrawlStatus = async () => {
+      if (!currentCrawlId.value) return;
+      
+      try {
+        const status = await store.dispatch('getCrawlStatus', currentCrawlId.value);
+        if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+          currentCrawlId.value = null;
+        } else if (status === 'in_progress') {
+          setTimeout(() => pollCrawlStatus(), 2000); // Poll every 2 seconds
+        }
+      } catch (error) {
+        console.error('Error polling crawl status:', error);
+        currentCrawlId.value = null;
+      }
+    };
+
     onMounted(fetchTeams);
 
     return {
@@ -259,7 +282,8 @@ export default {
       isSubmitting,
       showAdvanced,
       submitCrawl,
-      cancelCrawl
+      cancelCrawl,
+      isCrawling
     };
   }
 };

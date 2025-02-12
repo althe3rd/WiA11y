@@ -13,6 +13,7 @@ const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
 const { until } = require('selenium-webdriver');
+const VisitedUrl = require('../models/VisitedUrl'); // Import the model
 
 const CHROME_TMPFS_DIR = '/dev/shm/chrome-tmp';
 
@@ -773,7 +774,7 @@ class CrawlerService {
         await this.processUrl(crawlId, url, job.driver, crawl.crawlRate);
         
         // Mark URL as visited
-        await this.markUrlVisited(crawlId, normalizedUrl);
+        await this.markUrlAsVisited(crawlId, normalizedUrl);
       }
 
       // Complete crawl if queue is empty
@@ -812,15 +813,26 @@ class CrawlerService {
 
   // Add method to check if URL was visited
   async isUrlVisited(crawlId, url) {
-    const crawl = await Crawl.findById(crawlId);
-    return crawl.visitedUrls.includes(url);
+    try {
+      const visited = await VisitedUrl.findOne({ crawlId, url });
+      return !!visited; // Return true if found, false otherwise
+    } catch (error) {
+      console.error('Error checking if URL is visited:', error);
+      // Handle the error appropriately.  Maybe return 'true' to be safe?
+      return true;
+    }
   }
 
   // Add method to mark URL as visited
-  async markUrlVisited(crawlId, url) {
-    await Crawl.findByIdAndUpdate(crawlId, {
-      $addToSet: { visitedUrls: url }
-    });
+  async markUrlAsVisited(crawlId, url) {
+    try {
+      await VisitedUrl.create({ crawlId, url });
+    } catch (error) {
+      // If it's a duplicate key error, that's fine (we've already visited it)
+      if (error.code !== 11000) {
+        console.error('Error marking URL as visited:', error);
+      }
+    }
   }
 
   async completeCrawl(crawlId) {
