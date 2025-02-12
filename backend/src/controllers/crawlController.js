@@ -2,6 +2,7 @@ const Crawl = require('../models/crawl');
 const Violation = require('../models/violation');
 const crawlerService = require('../services/crawlerServiceInstance');
 const Team = require('../models/team');
+const queueService = require('../services/queueService');
 
 const crawlController = {
   async createCrawl(req, res) {
@@ -59,17 +60,8 @@ const crawlController = {
       await crawl.save();
       console.log('Crawl saved successfully');
 
-      // Start the crawl process
-      try {
-        console.log('Starting crawl process...');
-        await crawlerService.startCrawl(crawl._id);
-        console.log('Crawl process started successfully');
-      } catch (crawlError) {
-        console.error('Failed to start crawl:', crawlError);
-        // Update the crawl status to failed
-        crawl.status = 'failed';
-        await crawl.save();
-      }
+      // Add to queue
+      await queueService.addToQueue(crawl._id);
 
       res.status(201).json(crawl);
     } catch (error) {
@@ -105,6 +97,7 @@ const crawlController = {
         .sort({ createdAt: -1 })
         .populate('createdBy', 'name email')
         .populate('team', 'name')
+        .populate('violations')
         .lean();
 
       // For each crawl, get the violation counts
@@ -130,6 +123,14 @@ const crawlController = {
             crawl.violationsByImpact[count._id] = count.count;
           }
         });
+        
+        // Get actual violation details
+        const violations = await Violation.find({ crawlId: crawl._id })
+          .select('id impact description help helpUrl')
+          .lean();
+        
+        crawl.violations = violations;
+        console.log(`Found ${violations.length} violations for crawl ${crawl._id}`);
         
         return crawl;
       }));
@@ -220,6 +221,27 @@ const crawlController = {
     } catch (error) {
       console.error('Error fetching crawl:', error);
       res.status(500).json({ error: 'Failed to fetch crawl' });
+    }
+  },
+  async getQueueStatus(req, res) {
+    try {
+      // Count active crawls
+      const activeCrawls = await Crawl.countDocuments({
+        status: 'in_progress'
+      });
+
+      // Count queued crawls
+      const queuedCrawls = await Crawl.countDocuments({
+        status: 'queued'
+      });
+
+      res.json({
+        active: activeCrawls,
+        queued: queuedCrawls
+      });
+    } catch (error) {
+      console.error('Get queue status error:', error);
+      res.status(500).json({ error: 'Failed to fetch queue status' });
     }
   }
 };

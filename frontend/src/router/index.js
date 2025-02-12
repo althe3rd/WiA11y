@@ -9,6 +9,7 @@ import PagePreview from '../views/PagePreview.vue';
 import AllScans from '../views/AllScans.vue';
 import ForgotPassword from '../views/ForgotPassword.vue';
 import ResetPassword from '../views/ResetPassword.vue';
+import QueueView from '../views/QueueView.vue';
 import store from '../store';
 
 const routes = [
@@ -75,6 +76,12 @@ const routes = [
     path: '/reset-password',
     name: 'ResetPassword',
     component: ResetPassword
+  },
+  {
+    path: '/queue',
+    name: 'Queue',
+    component: QueueView,
+    meta: { requiresAuth: true }
   }
 ];
 

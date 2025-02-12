@@ -15,7 +15,7 @@ import { calculateScore } from '../utils/scoreCalculator'
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend)
 
 export default {
-  name: 'AccessibilityTrendGraph',
+  name: 'AverageScoreTrendGraph',
   components: { Line },
   props: {
     crawls: {
@@ -25,15 +25,38 @@ export default {
   },
   computed: {
     chartData() {
-      const sortedCrawls = [...this.crawls].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      // Group crawls by date and calculate average score for each day
+      const dailyScores = this.crawls.reduce((acc, crawl) => {
+        const date = new Date(crawl.createdAt).toLocaleDateString();
+        if (!acc[date]) {
+          acc[date] = {
+            scores: [],
+            total: 0,
+            count: 0
+          };
+        }
+        const score = calculateScore(crawl);
+        if (score !== '—') {
+          acc[date].scores.push(score);
+          acc[date].total += score;
+          acc[date].count++;
+        }
+        return acc;
+      }, {});
+
+      // Calculate averages and sort by date
+      const sortedData = Object.entries(dailyScores)
+        .map(([date, data]) => ({
+          date,
+          average: data.count > 0 ? Math.round(data.total / data.count) : null
+        }))
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
       return {
-        labels: sortedCrawls.map(crawl => new Date(crawl.createdAt).toLocaleDateString()),
+        labels: sortedData.map(item => item.date),
         datasets: [{
-          label: 'Accessibility Score',
-          data: sortedCrawls.map(crawl => {
-            const score = calculateScore(crawl);
-            return score === '—' ? null : score;
-          }),
+          label: 'Average Score',
+          data: sortedData.map(item => item.average),
           borderColor: '#4CAF50',
           backgroundColor: 'rgba(76, 175, 80, 0.1)',
           fill: true,
@@ -64,6 +87,13 @@ export default {
         plugins: {
           legend: {
             display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return `Average Score: ${context.parsed.y}%`;
+              }
+            }
           }
         }
       }
@@ -76,5 +106,9 @@ export default {
 .trend-graph {
   height: 300px;
   margin: 20px 0;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 </style> 

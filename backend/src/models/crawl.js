@@ -21,7 +21,7 @@ const crawlSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'in_progress', 'completed', 'failed', 'cancelled'],
+    enum: ['pending', 'queued', 'in_progress', 'completed', 'failed', 'cancelled'],
     default: 'pending'
   },
   depthLimit: {
@@ -79,6 +79,10 @@ const crawlSchema = new mongoose.Schema({
     max: 100
   },
   currentUrl: String,
+  queuePosition: {
+    type: Number,
+    default: null
+  },
 }, {
   timestamps: true
 });

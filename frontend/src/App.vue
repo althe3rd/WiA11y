@@ -7,12 +7,14 @@
         </div>
         <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
         <router-link to="/scans" class="nav-link">Scans</router-link>
+        <router-link to="/queue" class="nav-link">Queue</router-link>
         <router-link v-if="isNetworkAdmin || isAdmin" to="/users" class="nav-link">Users</router-link>
         <router-link to="/team-management" class="nav-link" v-if="isTeamAdmin || isNetworkAdmin">
           Team Management
         </router-link>
       </div>
       <div class="nav-right">
+        <QueueStatus />
         <div class="user-info">
           <span class="user-name">{{ user?.name }}</span>
           <div class="role-info">
@@ -31,6 +33,7 @@
 <script>
 import Logo from './components/Logo.vue';
 import CrawlForm from './components/CrawlForm.vue';
+import QueueStatus from './components/QueueStatus.vue';
 import { computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
@@ -39,7 +42,8 @@ export default {
   name: 'App',
   components: {
     Logo,
-    CrawlForm
+    CrawlForm,
+    QueueStatus
   },
   setup() {
     const store = useStore();
@@ -340,6 +344,11 @@ label {
 .nav-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 20px;
+}
+
+/* Add these styles for the queue status positioning */
+.queue-status {
+  margin-right: 20px;
 }
 </style> 

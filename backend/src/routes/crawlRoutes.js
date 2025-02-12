@@ -11,6 +11,9 @@ console.log('Setting up crawl routes');
 // All crawl routes require authentication
 router.use(auth);
 
+// Get queue status - must be before parameter routes
+router.get('/status', crawlController.getQueueStatus);
+
 // Get all crawls
 router.get('/', async (req, res) => {
   try {

@@ -42,10 +42,10 @@ instance.interceptors.response.use(
 instance.interceptors.request.use(
   config => {
     const token = localStorage.getItem('token');
-    console.log('Request:', {
+    console.log('API Request:', {
       url: config.url,
-      hasToken: !!token,
-      method: config.method
+      method: config.method,
+      hasToken: !!token
     });
     
     if (token) {

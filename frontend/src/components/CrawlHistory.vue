@@ -39,14 +39,17 @@
                   </div>
                   <span 
                     v-if="index < crawls.length - 1" 
-                    :class="['score-trend', getScoreTrendClass(crawl.accessibilityScore, crawls[index + 1].accessibilityScore)]"
+                    :class="['score-trend', getScoreTrendClass(calculateScore(crawl), calculateScore(crawls[index + 1]))]"
                   >
-                    {{ getScoreDifference(crawl.accessibilityScore, crawls[index + 1].accessibilityScore) }}
+                    {{ getScoreDifference(calculateScore(crawl), calculateScore(crawls[index + 1])) }}
                   </span>
-                  <span :class="['status', crawl.status]">{{ crawl.status }}</span>
+                  <span :class="['status', crawl.status]">{{ formatStatus(crawl) }}</span>
+                  <div v-if="crawl.status === 'queued'" class="queue-position">
+                    Queue Position: {{ crawl.queuePosition }}
+                  </div>
                   <LoadingSpinner 
-                    v-if="crawl.status === 'in_progress'"
-                    text="Scanning..."
+                    v-if="['in_progress', 'queued'].includes(crawl.status)"
+                    :text="crawl.status === 'queued' ? 'Queued...' : 'Scanning...'"
                     class="crawl-spinner"
                   />
                   <div class="crawl-actions">
@@ -309,11 +312,12 @@ export default {
       }
     },
     getScoreDifference(currentScore, previousScore) {
+      if (currentScore === '—' || previousScore === '—') return '';
       const diff = (currentScore - previousScore).toFixed(1);
       return diff > 0 ? `+${diff}%` : `${diff}%`;
     },
     getScoreTrendClass(currentScore, previousScore) {
-      if (currentScore === previousScore) return 'neutral';
+      if (currentScore === '—' || previousScore === '—' || currentScore === previousScore) return 'neutral';
       return currentScore > previousScore ? 'improved' : 'declined';
     },
     getLatestScore(domainData) {
@@ -330,17 +334,23 @@ export default {
       const allCrawls = Object.values(domainData).flat()
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       if (allCrawls.length < 2) return 'neutral';
+      
       const first = this.calculateScore(allCrawls[0]);
       const last = this.calculateScore(allCrawls[allCrawls.length - 1]);
-      if (first === last) return 'neutral';
+      
+      if (first === '—' || last === '—' || first === last) return 'neutral';
       return last > first ? 'improved' : 'declined';
     },
     getDomainOverallTrendSummary(domainData) {
       const allCrawls = Object.values(domainData).flat()
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       if (allCrawls.length < 2) return 'No trend data';
+      
       const first = this.calculateScore(allCrawls[0]);
       const last = this.calculateScore(allCrawls[allCrawls.length - 1]);
+      
+      if (first === '—' || last === '—') return 'No trend data';
+      
       const diff = (last - first).toFixed(1);
       const totalScans = allCrawls.length;
       if (diff > 0) {
@@ -403,15 +413,16 @@ export default {
       if (score >= 50) return 'score-fair';
       return 'score-poor';
     },
-    formatStatus(status) {
+    formatStatus(crawl) {
       const statusMap = {
         completed: 'Completed',
         in_progress: 'In Progress',
         failed: 'Failed',
         cancelled: 'Cancelled',
-        pending: 'Pending'
-      }
-      return statusMap[status] || status
+        pending: 'Pending',
+        queued: `Queued (#${crawl.queuePosition})`
+      };
+      return statusMap[crawl.status] || crawl.status;
     }
   },
   created() {
@@ -514,6 +525,11 @@ export default {
 }
 
 .status.pending {
+  background-color: #ff9800;
+  color: white;
+}
+
+.status.queued {
   background-color: #ff9800;
   color: white;
 }
@@ -800,5 +816,11 @@ export default {
 
 .view-details-btn:hover {
   background: var(--background-color);
+}
+
+.queue-position {
+  font-size: 0.9em;
+  color: #666;
+  margin-left: 10px;
 }
 </style> 

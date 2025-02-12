@@ -3,34 +3,56 @@
     <h2>Accessibility Statistics</h2>
     
     <div class="stats-grid">
-      <div class="stat-card">
-        <h3>Average Score</h3>
-        <div class="stat-value" :class="getScoreClass(averageScore)">
-          {{ averageScore }}%
+      <!-- Core stats in top row -->
+      <div class="core-stats">
+        <div class="stat-card">
+          <h3>Average Score</h3>
+          <div class="stat-value" :class="getScoreClass(averageScore)">
+            {{ averageScore }}%
+          </div>
+          <p class="stat-description">Across all scanned sites</p>
         </div>
-        <p class="stat-description">Across all scanned sites</p>
-      </div>
-      
-      <div class="stat-card">
-        <h3>Sites Scanned</h3>
-        <div class="stat-value">{{ uniqueSites }}</div>
-        <p class="stat-description">Total unique domains</p>
-      </div>
-      
-      <div class="stat-card">
-        <h3>Total Scans</h3>
-        <div class="stat-value">{{ totalScans }}</div>
-        <p class="stat-description">Completed accessibility checks</p>
+        
+        <div class="stat-card">
+          <h3>Sites Scanned</h3>
+          <div class="stat-value">{{ uniqueSites }}</div>
+          <p class="stat-description">Total unique domains</p>
+        </div>
+        
+        <div class="stat-card">
+          <h3>Total Scans</h3>
+          <div class="stat-value">{{ totalScans }}</div>
+          <p class="stat-description">Completed accessibility checks</p>
+        </div>
       </div>
 
-      <div class="stat-card">
-        <h3>Common Issues</h3>
-        <ul class="issues-list">
-          <li v-for="(count, issue) in topIssues" :key="issue">
-            <span class="issue-count">{{ count }}</span>
-            {{ issue }}
-          </li>
-        </ul>
+      <!-- Detailed analysis row -->
+      <div class="detailed-analysis">
+        <div class="trend-section">
+          <h3>Average Score Trend</h3>
+          <AverageScoreTrendGraph :crawls="filteredCrawls" />
+        </div>
+
+        <div class="issues-section">
+          <h3>Common Issues</h3>
+          <div class="stat-card">
+            
+            <div class="issues-content">
+              <div v-if="Object.keys(topIssues).length === 0" class="no-issues">
+                No issues found in selected time period
+              </div>
+              <ul v-else class="issues-list">
+                <li v-for="(count, issue) in topIssues" :key="issue">
+                  <span class="issue-count">{{ count }}</span>
+                  <span class="issue-text">
+                    <span class="issue-title">{{ formatIssueTitle(issue) }}</span>
+                    <span v-if="isImpactSummary(issue)" class="issue-impact">{{ issue }}</span>
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -41,9 +63,13 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useStore } from 'vuex'
 import api from '../api/axios'
 import { calculateScore } from '../utils/scoreCalculator'
+import AverageScoreTrendGraph from './AverageScoreTrendGraph.vue'
 
 export default {
   name: 'TeamStats',
+  components: {
+    AverageScoreTrendGraph
+  },
   props: {
     selectedTeam: {
       type: String,
@@ -136,17 +162,29 @@ export default {
 
     const topIssues = computed(() => {
       const issues = {}
+      console.log('Processing crawls for issues:', filteredCrawls.value);
       filteredCrawls.value.forEach(crawl => {
-        // Check if violations is an array and not empty
-        if (Array.isArray(crawl.violations) && crawl.violations.length > 0) {
-          crawl.violations.forEach(violation => {
-            const key = violation.description || violation.id
+        // Check violationsByImpact first
+        if (crawl.violationsByImpact) {
+          Object.entries(crawl.violationsByImpact).forEach(([impact, count]) => {
+            const key = `${impact} impact violations`;
             if (!issues[key]) issues[key] = 0
-            issues[key]++
+            issues[key] += count;
           })
+        }
+        
+        // Also check individual violations if available
+        if (Array.isArray(crawl.violations) && crawl.violations.length > 0) {
+          console.log('Found violations for crawl:', crawl.domain, crawl.violations);
+          crawl.violations.forEach(violation => {
+            const key = violation.help || violation.description || violation.id;
+            if (!issues[key]) issues[key] = 0;
+            issues[key]++;
+          });
         }
       })
       
+      console.log('Processed issues:', issues);
       return Object.fromEntries(
         Object.entries(issues)
           .sort(([,a], [,b]) => b - a)
@@ -160,6 +198,21 @@ export default {
       if (score >= 70) return 'score-good'
       if (score >= 50) return 'score-fair'
       return 'score-poor'
+    }
+
+    const formatIssueTitle = (issue) => {
+      // If it's an impact summary, return as is
+      if (issue.includes('impact violations')) {
+        return issue;
+      }
+      // Otherwise format the issue title
+      return issue.charAt(0).toUpperCase() + issue.slice(1)
+        .replace(/([A-Z])/g, ' $1') // Add spaces before capital letters
+        .trim();
+    }
+    
+    const isImpactSummary = (issue) => {
+      return issue.includes('impact violations');
     }
 
     onMounted(fetchAllAccessibleCrawls)
@@ -176,7 +229,10 @@ export default {
       topIssues,
       getScoreClass,
       showFilters,
-      availableTeams
+      availableTeams,
+      filteredCrawls,
+      formatIssueTitle,
+      isImpactSummary
     }
   }
 }
@@ -188,8 +244,21 @@ export default {
 }
 
 .stats-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.core-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.detailed-analysis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
   margin-top: 20px;
 }
@@ -199,23 +268,29 @@ export default {
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  height: 100%;
+}
+
+.issues-section  {
+  height: 400px; /* Match height of trend graph */
+  display: flex;
+  flex-direction: column;
+}
+
+.issues-section .stat-card {
+  height: 300px;
+}
+
+.issues-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 10px;
 }
 
 .stat-card h3 {
   color: var(--text-color);
   font-size: 1rem;
   margin-bottom: 10px;
-}
-
-.stat-value {
-  font-size: 2rem;
-  font-weight: 600;
-  margin: 10px 0;
-}
-
-.stat-description {
-  color: #666;
-  font-size: 0.9rem;
 }
 
 .issues-list {
@@ -226,9 +301,10 @@ export default {
 
 .issues-list li {
   display: flex;
-  align-items: center;
-  margin-bottom: 8px;
+  align-items: flex-start;
+  margin-bottom: 12px;
   font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .issue-count {
@@ -238,11 +314,66 @@ export default {
   margin-right: 8px;
   font-size: 0.8rem;
   font-weight: 500;
+  white-space: nowrap;
 }
 
+.stat-value {
+  font-size: 2.5rem;
+  font-weight: 600;
+  margin: 10px 0;
+}
+
+.stat-description {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Score color classes */
 .score-excellent { color: #4CAF50; }
 .score-good { color: #8BC34A; }
 .score-fair { color: #FFC107; }
 .score-poor { color: #F44336; }
 .score-pending { color: #9E9E9E; }
+
+.issue-text {
+  flex: 1;
+}
+
+.no-issues {
+  color: #666;
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}
+
+.trend-section {
+  height: 400px;
+}
+
+.trend-section h3 {
+  margin-bottom: 20px;
+  color: var(--text-color);
+  font-size: 1.2em;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .detailed-analysis {
+    grid-template-columns: 1fr;
+  }
+  
+  .issues-section .stat-card {
+    height: 300px;
+  }
+}
+
+.issue-title {
+  display: block;
+  font-weight: 500;
+}
+
+.issue-impact {
+  font-size: 0.85em;
+  color: #666;
+}
 </style> 
