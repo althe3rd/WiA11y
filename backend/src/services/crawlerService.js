@@ -336,39 +336,27 @@ class CrawlerService {
     console.log(`Current progress: ${crawl.pagesScanned}/${crawl.pageLimit} pages`);
 
     try {
-      // Replace the problematic stealth code with CDP commands
-      const cdpConnection = await driver.createCDPConnection('page');
-      await cdpConnection.execute('Page.addScriptToEvaluateOnNewDocument', {
-        source: `
-          Object.defineProperties(navigator, {
-            webdriver: {
-              get: () => undefined
-            }
-          });
-          window.chrome = {
-            runtime: {}
-          };
-        `
-      });
-
-      // Set a custom user agent via CDP
-      await cdpConnection.execute('Network.setUserAgentOverride', {
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      });
-
+      // Add more logging around page load
+      console.log(`Starting to load URL: ${url}`);
       await driver.get(url);
+      console.log('Page loaded, waiting for readyState...');
 
-      // Wait for page load with timeout
       await driver.wait(async () => {
         const state = await driver.executeScript('return document.readyState');
+        console.log('Current readyState:', state);
         return state === 'complete';
       }, 30000);
 
-      // Add a small delay to allow dynamic content
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      console.log(`Successfully loaded ${url}`);
+      console.log('Page fully loaded, checking DOM content...');
       
+      // Log the page content length to verify we're getting content
+      const pageContent = await driver.executeScript('return document.documentElement.outerHTML');
+      console.log('Page content length:', pageContent.length);
+      
+      // Check if we can find any <a> tags
+      const linkCount = await driver.executeScript('return document.getElementsByTagName("a").length');
+      console.log('Number of <a> tags found:', linkCount);
+
       // Run axe-core analysis
       const results = await this.runAccessibilityTests(driver, url, crawlId);
       await this.saveViolations(crawlId, url, results.violations);
@@ -411,7 +399,8 @@ class CrawlerService {
       // Let processQueue handle the next URL
       return;
     } catch (error) {
-      console.error(`Error processing ${url}:`, {
+      console.error('Error in processUrl:', {
+        url: url,
         error: error.message,
         stack: error.stack,
         retry: retryCount
@@ -588,87 +577,76 @@ class CrawlerService {
     });
   }
 
-  isUrlInDomain(url) {
+  async extractLinks(driver) {
     try {
-      const urlObj = new URL(url);
-      const urlHostname = urlObj.hostname.toLowerCase();
-      const targetDomain = this.currentDomain.toLowerCase();
+      console.log('Starting link extraction...');
       
-      // Normalize domains for comparison
-      const normalizedUrl = urlHostname.replace(/^www\./, '');
-      const normalizedTarget = targetDomain.replace(/^www\./, '');
+      // Get all links using JavaScript
+      const links = await driver.executeScript(`
+        const links = Array.from(document.querySelectorAll('a[href]'))
+          .map(a => {
+            try {
+              return new URL(a.href).toString();
+            } catch (e) {
+              console.error('Invalid URL:', a.href);
+              return null;
+            }
+          })
+          .filter(url => url !== null);
+        console.log('Found links:', links);
+        return links;
+      `);
+
+      console.log('Raw links extracted:', links.length);
       
-      console.log(`Comparing ${normalizedUrl} with ${normalizedTarget}`);
-      return normalizedUrl === normalizedTarget;
+      // Filter and normalize links
+      const normalizedLinks = links
+        .map(link => {
+          try {
+            const url = new URL(link);
+            // Log each link's domain for debugging
+            console.log('Processing link:', {
+              original: link,
+              hostname: url.hostname,
+              pathname: url.pathname,
+              isInDomain: this.isUrlInDomain(link)
+            });
+            return url.toString();
+          } catch (e) {
+            console.error('Error normalizing URL:', link, e);
+            return null;
+          }
+        })
+        .filter(link => link !== null);
+
+      console.log('Normalized links:', normalizedLinks.length);
+      return normalizedLinks;
     } catch (error) {
-      console.error('Invalid URL:', url);
-      return false;
+      console.error('Error in extractLinks:', {
+        error: error.message,
+        stack: error.stack
+      });
+      return [];
     }
   }
 
-  async extractLinks(driver) {
+  async isUrlInDomain(url) {
     try {
-      // Wait for the page to be fully loaded
-      await driver.wait(async () => {
-        const state = await driver.executeScript('return document.readyState');
-        return state === 'complete';
-      }, 10000);
-
-      // Add a small delay to allow dynamic content to load
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // First try the direct approach
-      let links = await driver.executeScript(`
-        return Array.from(document.querySelectorAll('a[href]'))
-          .map(a => {
-            try {
-              return new URL(a.href, window.location.href).toString();
-            } catch (e) {
-              return null;
-            }
-          })
-          .filter(href => href && href.startsWith('http'));
-      `);
-
-      // If no links found, try alternative methods
-      if (!links || links.length === 0) {
-        console.log('No links found with primary method, trying alternative...');
-        
-        // Get the page source and parse with cheerio as backup
-        const pageSource = await driver.getPageSource();
-        const currentUrl = await driver.getCurrentUrl();
-        const $ = cheerio.load(pageSource);
-        
-        links = $('a[href]')
-          .map((_, el) => {
-            try {
-              const href = $(el).attr('href');
-              return new URL(href, currentUrl).toString();
-            } catch (e) {
-              return null;
-            }
-          })
-          .get()
-          .filter(href => href && href.startsWith('http'));
-      }
-
-      // Log detailed information about the extraction
-      console.log('Link extraction results:', {
-        total: links.length,
-        sample: links.slice(0, 5),
-        pageUrl: await driver.getCurrentUrl(),
-        pageTitle: await driver.getTitle(),
-        pageState: await driver.executeScript('return document.readyState')
+      const urlObj = new URL(url);
+      const result = urlObj.hostname.includes(this.currentDomain);
+      console.log('Domain check:', {
+        url: url,
+        hostname: urlObj.hostname,
+        currentDomain: this.currentDomain,
+        isInDomain: result
       });
-
-      return links;
+      return result;
     } catch (error) {
-      console.error('Error extracting links:', {
-        error: error.message,
-        stack: error.stack,
-        currentUrl: await driver.getCurrentUrl().catch(() => 'unknown')
+      console.error('Error in isUrlInDomain:', {
+        url: url,
+        error: error.message
       });
-      return [];
+      return false;
     }
   }
 
@@ -721,36 +699,61 @@ class CrawlerService {
   }
 
   async queueLinks(links, sourceUrl, crawl) {
+    console.log('queueLinks called with:', {
+      numberOfLinks: links.length,
+      sourceUrl,
+      crawlId: crawl._id
+    });
+
     const currentDepth = this.urlDepths.get(sourceUrl);
     console.log(`Processing ${links.length} links from URL at depth ${currentDepth}`);
+    console.log('Current urlDepths map:', Array.from(this.urlDepths.entries()));
     console.log(`Current queue size before processing: ${this.queue.length}`);
 
     // Get current page count to check against limit
     const currentCrawl = await Crawl.findById(crawl._id);
     const remainingPages = currentCrawl.pageLimit - currentCrawl.pagesScanned;
     
+    console.log('Crawl status:', {
+      pagesScanned: currentCrawl.pagesScanned,
+      pageLimit: currentCrawl.pageLimit,
+      remainingPages
+    });
+
     let queuedCount = 0;
     let validLinks = [];
 
     // Process all links first
     for (const link of links) {
-        const normalizedLink = link.replace(/\/$/, '');
-        // CHANGE: Make this check asynchronous
-        const visited = await this.isUrlVisited(crawl._id, normalizedLink);
-        
-        if (!visited && this.isUrlInDomain(link)) {
-            const depth = this.getUrlDepth(link);
-            if (depth <= currentCrawl.depthLimit) {
-                this.urlDepths.set(link, depth);
-                validLinks.push({ link, depth });
-                console.log(`Valid link found: ${link} at depth ${depth}`);
-            } else {
-                console.log(`Skipping ${link} - depth ${depth} exceeds limit ${currentCrawl.depthLimit}`);
-            }
+      console.log('Processing link:', link);
+      const normalizedLink = link.replace(/\/$/, '');
+      const visited = await this.isUrlVisited(crawl._id, normalizedLink);
+      const isInDomain = this.isUrlInDomain(link);
+      
+      console.log('Link check:', {
+        original: link,
+        normalized: normalizedLink,
+        visited,
+        isInDomain,
+        currentDepth,
+        depthLimit: currentCrawl.depthLimit
+      });
+
+      if (!visited && isInDomain) {
+        const depth = this.getUrlDepth(link);
+        if (depth <= currentCrawl.depthLimit) {
+          this.urlDepths.set(link, depth);
+          validLinks.push({ link, depth });
+          console.log(`Valid link found: ${link} at depth ${depth}`);
         } else {
-            console.log(`Skipping ${link} - ${visited ? 'already visited' : 'not in domain'}`);
+          console.log(`Skipping ${link} - depth ${depth} exceeds limit ${currentCrawl.depthLimit}`);
         }
+      } else {
+        console.log(`Skipping ${link} - ${visited ? 'already visited' : 'not in domain'}`);
+      }
     }
+
+    console.log('Valid links found:', validLinks.length);
 
     // Sort valid links by depth
     validLinks.sort((a, b) => a.depth - b.depth);
