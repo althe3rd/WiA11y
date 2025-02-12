@@ -12,6 +12,7 @@ const fs = require('fs');
 const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
+const { until } = require('selenium-webdriver');
 
 const CHROME_TMPFS_DIR = '/dev/shm/chrome-tmp';
 
@@ -177,7 +178,21 @@ class CrawlerService {
     
     const options = new chrome.Options();
     
-    // Set the Chrome binary path explicitly
+    // Set common Chrome arguments
+    options.addArguments(
+      '--headless=new',
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--window-size=1920,1080',
+      '--ignore-certificate-errors',
+      '--disable-extensions',
+      '--disable-setuid-sandbox',
+      '--disable-web-security',  // Add this to help with some sites' security policies
+      '--enable-javascript'      // Explicitly enable JavaScript
+    );
+
+    // Set the Chrome binary path explicitly in production
     const chromeBinary = process.env.NODE_ENV === 'production'
       ? '/root/.cache/selenium/chrome/linux64/133.0.6943.53/chrome'
       : undefined;
@@ -193,6 +208,9 @@ class CrawlerService {
         '--log-path=/tmp/chrome.log'
       );
     }
+
+    // Add additional logging for link extraction
+    console.log('Chrome options:', options);
 
     // Create a unique profile directory for this crawl
     const uniqueProfileDir = path.join(
@@ -575,15 +593,25 @@ class CrawlerService {
 
   async extractLinks(driver) {
     try {
+      // Wait for the page to be fully loaded
+      await driver.wait(until.documentComplete, 10000);
+      
       const links = await driver.executeScript(`
         return Array.from(document.querySelectorAll('a[href]'))
-          .map(a => a.href)
+          .map(a => {
+            try {
+              return new URL(a.href).toString();
+            } catch (e) {
+              return null;
+            }
+          })
           .filter(href => href && href.startsWith('http'));
       `);
       
-      console.log('Extracted links:', {
+      console.log('Link extraction results:', {
         total: links.length,
-        sample: links.slice(0, 3)
+        sample: links.slice(0, 5),
+        pageUrl: await driver.getCurrentUrl()
       });
       
       return links;
