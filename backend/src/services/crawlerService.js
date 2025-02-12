@@ -12,7 +12,6 @@ const fs = require('fs');
 const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
-const { until, By } = require('selenium-webdriver');
 
 const CHROME_TMPFS_DIR = '/dev/shm/chrome-tmp';
 
@@ -23,7 +22,6 @@ class CrawlerService {
     this.currentDomain = ''; // Store the current domain being crawled
     this.urlDepths = new Map(); // Track URL depths
     this.baseUrl = '';  // Store the base URL (will be set after first successful connection)
-    this.visitedUrlsByCrawl = new Map(); // Track visited URLs per crawl
   }
 
   async updateCrawlStatus(crawlId, updates) {
@@ -165,64 +163,68 @@ class CrawlerService {
     }
   }
 
-  async crawlDomain(crawlId, startUrl, crawlRate, depthLimit, pageLimit) {
+  async crawlDomain(crawlId, domain, crawlRate, depthLimit, pageLimit) {
+    await this.killChrome();
+    await this.ensureChromeBinary();
+    
+    // Initialize tracking structures for this crawl
+    this.currentDomain = domain;
+    this.queue = [];
+    this.urlDepths.clear();
+    
+    console.log(`Starting crawl for ${domain} with ID ${crawlId}`);
+    console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
+    
+    const options = new chrome.Options();
+    
+    // Set the Chrome binary path explicitly
+    const chromeBinary = process.env.NODE_ENV === 'production'
+      ? '/root/.cache/selenium/chrome/linux64/133.0.6943.53/chrome'
+      : undefined;
+
+    if (chromeBinary) {
+      options.setChromeBinaryPath(chromeBinary);
+      console.log('Using Chrome binary:', chromeBinary);
+      
+      // Add Chrome debugging flags in production
+      options.addArguments(
+        '--enable-logging',
+        '--v=1',
+        '--log-path=/tmp/chrome.log'
+      );
+    }
+
+    // Create a unique profile directory for this crawl
+    const uniqueProfileDir = path.join(
+      os.tmpdir(),
+      'wia11y-profiles',
+      `profile-${crawlId.toString()}-${Date.now()}`
+    );
+
+    // Ensure the profiles directory exists and is clean
+    if (fs.existsSync(uniqueProfileDir)) {
+      fs.rmSync(uniqueProfileDir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(uniqueProfileDir, { recursive: true });
+    fs.chmodSync(uniqueProfileDir, 0o777);
+
     let driver;
     try {
-      console.log('Starting crawl:', {
-        crawlId,
-        startUrl,
-        crawlRate,
-        depthLimit,
-        pageLimit,
-        memoryUsage: process.memoryUsage()
-      });
-
-      // Initialize Chrome
-      const chromeOptions = new chrome.Options()
-        .addArguments('--headless')
-        .addArguments('--disable-gpu')
-        .addArguments('--no-sandbox')
-        .addArguments('--disable-dev-shm-usage')
-        .addArguments('--disable-software-rasterizer')
-        .addArguments('--disable-extensions')
-        .addArguments('--disable-sync')
-        .addArguments('--disable-background-networking')
-        .addArguments('--disable-default-apps')
-        .addArguments('--disable-translate')
-        .addArguments('--metrics-recording-only')
-        .addArguments('--no-first-run')
-        .addArguments('--safebrowsing-disable-auto-update')
-        .addArguments('--disable-background-timer-throttling')
-        .addArguments('--disable-backgrounding-occluded-windows')
-        .addArguments('--disable-client-side-phishing-detection')
-        .addArguments('--disable-component-update')
-        .addArguments('--disable-domain-reliability')
-        .addArguments('--disable-features=TranslateUI')
-        .addArguments('--disable-hang-monitor')
-        .addArguments('--disable-ipc-flooding-protection')
-        .addArguments('--disable-popup-blocking')
-        .addArguments('--disable-prompt-on-repost')
-        .addArguments('--disable-renderer-backgrounding')
-        .addArguments('--force-color-profile=srgb')
-        .addArguments('--disable-breakpad')
-        .addArguments('--disable-features=InterestFeedContentSuggestions')
-        .addArguments('--enable-automation')
-        .addArguments('--password-store=basic')
-        .addArguments('--use-mock-keychain');
-
+      console.log('Building Chrome driver with options:', JSON.stringify(options, null, 2));
       driver = await new Builder()
         .forBrowser('chrome')
-        .setChromeOptions(chromeOptions)
+        .setChromeOptions(options)
         .build();
-
-      // Initialize tracking structures for this crawl
-      this.currentDomain = startUrl.split('/')[2];
-      this.queue = [];
-      this.visitedUrlsByCrawl.set(crawlId, new Set()); // Initialize visited URLs Set
-      this.urlDepths.clear();
       
-      console.log(`Starting crawl for ${startUrl} with ID ${crawlId}`);
-      console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
+      console.log('Chrome driver built successfully');
+
+      await driver.manage().setTimeouts({
+        implicit: 10000,
+        pageLoad: 30000,
+        script: 30000
+      });
+
+      this.activeJobs.set(crawlId, { driver, isRunning: true });
       
       await this.updateCrawlStatus(crawlId, { 
         status: 'in_progress', 
@@ -233,18 +235,7 @@ class CrawlerService {
 
       // Try HTTPS first, fall back to HTTP if needed
       try {
-        this.urlDepths.set(startUrl, 1);
-        this.baseUrl = startUrl;
-        await this.processUrl(crawlId, startUrl, driver, crawlRate);
-        
-        // Check if we need to continue processing the queue
-        if (this.queue.length > 0) {
-          console.log(`Initial page processed, continuing with queue (${this.queue.length} URLs)`);
-          await this.processQueue(crawlId, driver, crawlRate);
-        }
-      } catch (error) {
-        console.log('HTTPS failed, trying HTTP');
-        const url = `http://${startUrl.split('/')[2]}`;
+        const url = `https://${domain}`;
         this.urlDepths.set(url, 1);
         this.baseUrl = url;
         await this.processUrl(crawlId, url, driver, crawlRate);
@@ -252,79 +243,157 @@ class CrawlerService {
         // Check if we need to continue processing the queue
         if (this.queue.length > 0) {
           console.log(`Initial page processed, continuing with queue (${this.queue.length} URLs)`);
-          await this.processQueue(crawlId, driver, crawlRate);
+          await this.processQueue(crawlId);
+        }
+      } catch (error) {
+        console.log('HTTPS failed, trying HTTP');
+        const url = `http://${domain}`;
+        this.urlDepths.set(url, 1);
+        this.baseUrl = url;
+        await this.processUrl(crawlId, url, driver, crawlRate);
+        
+        // Check if we need to continue processing the queue
+        if (this.queue.length > 0) {
+          console.log(`Initial page processed, continuing with queue (${this.queue.length} URLs)`);
+          await this.processQueue(crawlId);
         }
       }
       
       if (this.activeJobs.get(crawlId).isRunning) {
-        console.log(`Completing crawl for ${startUrl}`);
+        console.log(`Completing crawl for ${domain}`);
         await this.updateCrawlStatus(crawlId, { 
           status: 'completed',
           completedAt: new Date()
         });
       }
     } catch (error) {
-      console.error('Crawl error:', {
-        error: error.message,
-        stack: error.stack,
-        memoryUsage: process.memoryUsage()
-      });
+      console.error(`Crawl error for ${domain}:`, error);
+      console.error('Chrome options used:', options);
       
-      // Update crawl status to failed
-      await this.updateCrawlStatus(crawlId, {
+      await this.updateCrawlStatus(crawlId, { 
         status: 'failed',
         error: error.message
       });
-      
-      throw error;
     } finally {
       if (driver) {
         try {
           await driver.quit();
-        } catch (error) {
-          console.error('Error closing browser:', error);
+        } catch (quitError) {
+          console.error('Error quitting driver:', quitError);
         }
       }
-      // Clean up any temporary files
-      await this.cleanup(crawlId);
+      
+      // Clean up the profile directory
+      try {
+        if (fs.existsSync(uniqueProfileDir)) {
+          fs.rmSync(uniqueProfileDir, { recursive: true, force: true });
+          console.log('Cleaned up Chrome profile directory:', uniqueProfileDir);
+        }
+      } catch (cleanupError) {
+        console.error('Error cleaning up profile directory:', cleanupError);
+      }
+      
+      this.activeJobs.delete(crawlId);
     }
   }
 
   async processUrl(crawlId, url, driver, crawlRate) {
+    const job = this.activeJobs.get(crawlId);
+    if (!job?.isRunning) {
+      console.log('Job is not running, skipping URL:', url);
+      return;
+    }
+
+    const crawl = await Crawl.findById(crawlId);
+    console.log(`Processing URL: ${url}`);
+    console.log(`Current progress: ${crawl.pagesScanned}/${crawl.pageLimit} pages`);
+
     try {
-      console.log(`Processing URL: ${url}`);
-      
-      // Get current crawl
-      const crawl = await Crawl.findById(crawlId);
-      if (!crawl) {
-        throw new Error('Crawl not found');
+      // Check if the crawl has been cancelled
+      if (crawl.status === 'cancelled') {
+        console.log(`Crawl ${crawlId} has been cancelled, stopping processing`);
+        job.isRunning = false;
+        this.queue = [];
+        return;
       }
 
-      // Check if we've hit the page limit
-      if (crawl.pagesScanned >= crawl.pageLimit) {
-        console.log(`Page limit (${crawl.pageLimit}) reached, stopping crawl`);
-        await this.updateCrawlStatus(crawlId, {
+      if (!job || !job.isRunning) {
+        console.log(`Job ${crawlId} is no longer running, skipping processing`);
+        this.queue = [];
+        return;
+      }
+
+      const currentDepth = this.urlDepths.get(url) || 1;
+      
+      console.log(`Processing URL at depth ${currentDepth}/${crawl.depthLimit}, pages scanned: ${crawl.pagesScanned}/${crawl.pageLimit}`);
+
+      // Normalize URL to prevent duplicates with/without trailing slash
+      const normalizedUrl = url.replace(/\/$/, '');
+
+      if (currentDepth > crawl.depthLimit) {
+        console.log(`Skipping ${url} - exceeds depth limit of ${crawl.depthLimit}`);
+        return;
+      }
+
+      // Rate limiting
+      await new Promise(resolve => setTimeout(resolve, (60 / crawlRate) * 1000));
+
+      if (!this.activeJobs.get(crawlId)?.isRunning) {
+        console.log(`Job ${crawlId} was cancelled during processing`);
+        return;
+      }
+
+      await driver.get(url);
+      // Wait for page load
+      await driver.wait(async () => {
+        const state = await driver.executeScript('return document.readyState');
+        return state === 'complete';
+      }, 10000);
+      console.log(`Successfully loaded ${url}`);
+      
+      // Run axe-core analysis
+      const results = await this.runAccessibilityTests(driver, url, crawlId);
+      await this.saveViolations(crawlId, url, results.violations);
+
+      // Update progress before queueing new links
+      await this.updateCrawlStatus(crawlId, {
+        $inc: { pagesScanned: 1 }
+      });
+
+      // Check page limit after incrementing
+      const updatedCrawl = await Crawl.findById(crawlId);
+      if (updatedCrawl.pagesScanned >= updatedCrawl.pageLimit) {
+        console.log(`Page limit of ${updatedCrawl.pageLimit} reached, stopping crawl`);
+        job.isRunning = false;
+        await this.updateCrawlStatus(crawlId, { 
           status: 'completed',
           completedAt: new Date()
         });
         return;
       }
 
-      // Navigate to URL
-      console.log(`Navigating to ${url}`);
-      await driver.get(url);
+      // Extract links and add to queue
+      const links = await this.extractLinks(driver);
+      console.log(`Found ${links.length} links on ${url}`);
       
-      // Wait for page load
-      await driver.wait(until.elementLocated(By.tagName('body')), 10000);
+      // Don't process queue here - it creates recursion
+      await this.queueLinks(links, url, crawl);
       
-      // Rest of your existing processUrl code...
-    } catch (error) {
-      console.error('Error in processUrl:', {
-        url,
-        error: error.message,
-        stack: error.stack
+      // Update progress after each page
+      const progress = (updatedCrawl.pagesScanned / updatedCrawl.pageLimit) * 100;
+      
+      // Update crawl with progress
+      await Crawl.findByIdAndUpdate(crawlId, { 
+        $set: { 
+          progress: Math.min(progress, 100),
+          currentUrl: url
+        }
       });
-      throw error;
+      
+      // Let processQueue handle the next URL
+      return;
+    } catch (error) {
+      console.error(`Error processing ${url}:`, error);
     }
   }
 
@@ -565,7 +634,6 @@ class CrawlerService {
       
       // Clean up all tracking data
       this.activeJobs.delete(crawlId);
-      this.visitedUrlsByCrawl.delete(crawlId);
       this.urlDepths.clear();
       console.log('Crawl cancelled successfully');
     } else {
@@ -582,38 +650,27 @@ class CrawlerService {
     const currentCrawl = await Crawl.findById(crawl._id);
     const remainingPages = currentCrawl.pageLimit - currentCrawl.pagesScanned;
     
-    // Ensure visited URLs Set exists
-    let visitedUrls = this.visitedUrlsByCrawl.get(crawl._id);
-    if (!visitedUrls) {
-      visitedUrls = new Set();
-      this.visitedUrlsByCrawl.set(crawl._id, visitedUrls);
-      console.log('Initialized new visited URLs Set');
-    }
-
-    console.log('Crawl status:', {
-      pagesScanned: currentCrawl.pagesScanned,
-      pageLimit: currentCrawl.pageLimit,
-      remainingPages,
-      visitedUrlsCount: visitedUrls.size,
-      currentQueueSize: this.queue.length
-    });
-
     let queuedCount = 0;
     let validLinks = [];
 
+    // Process all links first
     for (const link of links) {
-      // Normalize URL to prevent duplicates
-      const normalizedLink = link.replace(/\/$/, '');
-      if (!visitedUrls.has(normalizedLink) && this.isUrlInDomain(link)) {
-        const depth = this.getUrlDepth(link);
-        // Check depth limit only
-        if (depth <= currentCrawl.depthLimit) {
-          this.urlDepths.set(link, depth);
-          validLinks.push({ link, depth });
+        const normalizedLink = link.replace(/\/$/, '');
+        // CHANGE: Make this check asynchronous
+        const visited = await this.isUrlVisited(crawl._id, normalizedLink);
+        
+        if (!visited && this.isUrlInDomain(link)) {
+            const depth = this.getUrlDepth(link);
+            if (depth <= currentCrawl.depthLimit) {
+                this.urlDepths.set(link, depth);
+                validLinks.push({ link, depth });
+                console.log(`Valid link found: ${link} at depth ${depth}`);
+            } else {
+                console.log(`Skipping ${link} - depth ${depth} exceeds limit ${currentCrawl.depthLimit}`);
+            }
         } else {
-          console.log(`Skipping ${link} - depth ${depth} exceeds limit ${currentCrawl.depthLimit}`);
+            console.log(`Skipping ${link} - ${visited ? 'already visited' : 'not in domain'}`);
         }
-      }
     }
 
     // Sort valid links by depth
@@ -621,13 +678,14 @@ class CrawlerService {
     
     // Add links up to the remaining page limit
     for (const { link, depth } of validLinks) {
-      if (queuedCount < remainingPages) {
-        console.log(`Adding ${link} at depth ${depth} (queued: ${queuedCount + 1}/${remainingPages})`);
-        this.queue.push(link);
-        queuedCount++;
-      } else {
-        console.log(`Skipping ${link} - page limit reached (${currentCrawl.pageLimit})`);
-      }
+        if (queuedCount < remainingPages) {
+            console.log(`Adding ${link} at depth ${depth} (queued: ${queuedCount + 1}/${remainingPages})`);
+            this.queue.push(link);
+            queuedCount++;
+        } else {
+            console.log(`Skipping ${link} - page limit reached (${currentCrawl.pageLimit})`);
+            break;
+        }
     }
 
     console.log(`Added ${queuedCount} new URLs to queue`);
@@ -635,56 +693,43 @@ class CrawlerService {
     console.log('Sample of queued URLs:', this.queue.slice(0, 3));
   }
 
-  async processQueue(crawlId, driver, crawlRate) {
-    console.log(`Starting queue processing for crawl ${crawlId}`);
-    console.log('Initial queue state:', {
-      queueSize: this.queue.length,
-      visitedUrls: this.visitedUrlsByCrawl.get(crawlId)?.size || 0,
-      currentDomain: this.currentDomain
-    });
-
-    while (this.queue.length > 0) {
+  async processQueue(crawlId) {
+    try {
       const crawl = await Crawl.findById(crawlId);
-      if (!crawl || crawl.status === 'cancelled') {
-        console.log('Crawl cancelled or not found, stopping queue processing');
-        await this.updateCrawlStatus(crawlId, {
-          status: 'cancelled',
-          completedAt: new Date(),
-          pagesScanned: crawl.pagesScanned,
-          pageLimit: crawl.pageLimit
-        });
-        this.queue = [];
-        break;
+      if (!crawl) return;
+
+      const job = this.activeJobs.get(crawlId);
+      if (!job || !job.driver) {
+        console.error('No active driver found for crawl:', crawlId);
+        return;
       }
 
-      const url = this.queue.shift();
-      console.log(`Processing URL from queue:`, {
-        url,
-        remainingUrls: this.queue.length,
-        visitedCount: this.visitedUrlsByCrawl.get(crawlId)?.size || 0,
-        memoryUsage: process.memoryUsage()
-      });
-      
-      try {
-        await this.processUrl(crawlId, url, driver, crawlRate);
-      } catch (error) {
-        console.error('Error processing URL:', {
-          url,
-          error: error.message,
-          stack: error.stack
-        });
-        // Continue with next URL instead of stopping completely
-        continue;
+      while (this.queue.length > 0 && crawl.pagesScanned < crawl.pageLimit) {
+        const url = this.queue.shift();
+        const normalizedUrl = url.replace(/\/$/, '');
+        
+        // Check if URL was visited using database
+        const visited = await this.isUrlVisited(crawlId, normalizedUrl);
+        if (visited) {
+          console.log(`Skipping already visited URL: ${url}`);
+          continue;
+        }
+
+        // Process the URL with the correct driver object
+        await this.processUrl(crawlId, url, job.driver, crawl.crawlRate);
+        
+        // Mark URL as visited
+        await this.markUrlVisited(crawlId, normalizedUrl);
       }
-      
-      // Rate limiting between pages
-      await new Promise(resolve => setTimeout(resolve, (60 / crawlRate) * 1000));
+
+      // Complete crawl if queue is empty
+      if (this.queue.length === 0) {
+        await this.completeCrawl(crawlId);
+      }
+    } catch (error) {
+      console.error('Error processing queue:', error);
+      throw error;
     }
-    
-    console.log('Queue processing completed', {
-      visitedUrls: this.visitedUrlsByCrawl.get(crawlId)?.size || 0,
-      memoryUsage: process.memoryUsage()
-    });
   }
 
   getUrlDepth(url) {
@@ -711,34 +756,53 @@ class CrawlerService {
     }
   }
 
-  async cleanup(crawlId) {
-    // Clean up the profile directory
-    const uniqueProfileDir = this.getTempDir(crawlId);
-    if (fs.existsSync(uniqueProfileDir)) {
-      fs.rmSync(uniqueProfileDir, { recursive: true, force: true });
-      console.log('Cleaned up Chrome profile directory:', uniqueProfileDir);
-    }
-    
-    this.activeJobs.delete(crawlId);
-    this.visitedUrlsByCrawl.delete(crawlId);
+  // Add method to check if URL was visited
+  async isUrlVisited(crawlId, url) {
+    const crawl = await Crawl.findById(crawlId);
+    return crawl.visitedUrls.includes(url);
+  }
+
+  // Add method to mark URL as visited
+  async markUrlVisited(crawlId, url) {
+    await Crawl.findByIdAndUpdate(crawlId, {
+      $addToSet: { visitedUrls: url }
+    });
+  }
+
+  async completeCrawl(crawlId) {
+    await this.updateCrawlStatus(crawlId, { 
+      status: 'completed',
+      completedAt: new Date()
+    });
+    this.queue = [];
     this.urlDepths.clear();
   }
 
-  async monitorMemory(crawlId) {
-    const memoryUsage = process.memoryUsage();
-    console.log('Memory usage for crawl', crawlId, {
-      heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024) + 'MB',
-      heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024) + 'MB',
-      rss: Math.round(memoryUsage.rss / 1024 / 1024) + 'MB',
-      external: Math.round(memoryUsage.external / 1024 / 1024) + 'MB'
-    });
-
-    // If memory usage is too high, trigger garbage collection
-    if (memoryUsage.heapUsed > 1024 * 1024 * 1024) { // 1GB
-      console.log('High memory usage detected, attempting cleanup');
-      if (global.gc) {
-        global.gc();
+  // Add the startCrawl method
+  async startCrawl(crawlId) {
+    try {
+      console.log('Starting crawl process for:', crawlId);
+      const crawl = await Crawl.findById(crawlId);
+      if (!crawl) {
+        throw new Error('Crawl not found');
       }
+
+      // Start the actual crawl process
+      await this.crawlDomain(
+        crawlId,
+        crawl.domain,
+        crawl.crawlRate,
+        crawl.depthLimit,
+        crawl.pageLimit
+      );
+    } catch (error) {
+      console.error('Error in crawlerService.startCrawl:', error);
+      // Update crawl status to failed if there's an error
+      await this.updateCrawlStatus(crawlId, { 
+        status: 'failed',
+        error: error.message
+      });
+      throw error;
     }
   }
 }

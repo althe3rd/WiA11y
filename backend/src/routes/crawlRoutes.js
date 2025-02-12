@@ -5,6 +5,7 @@ const { auth } = require('../middleware/auth');
 const Crawl = require('../models/crawl');
 const Team = require('../models/team');
 const Violation = require('../models/violation');
+const crawlerService = require('../services/crawlerServiceInstance');
 
 console.log('Setting up crawl routes');
 
@@ -160,7 +161,37 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new crawl
-router.post('/', crawlController.createCrawl);
+router.post('/', async (req, res) => {
+  try {
+    const { url, domain, team, depthLimit, pageLimit, crawlRate, wcagVersion, wcagLevel } = req.body;
+
+    const crawl = new Crawl({
+      url,
+      domain,
+      team,
+      depthLimit,
+      pageLimit,
+      crawlRate,
+      wcagVersion,
+      wcagLevel,
+      createdBy: req.user._id,
+      visitedUrls: [], // Initialize empty array
+      status: 'pending'
+    });
+
+    await crawl.save();
+
+    // Start the crawl process
+    crawlerService.startCrawl(crawl._id).catch(error => {
+      console.error('Error starting crawl:', error);
+    });
+
+    res.status(201).json(crawl);
+  } catch (error) {
+    console.error('Error creating crawl:', error);
+    res.status(500).json({ message: 'Error creating crawl' });
+  }
+});
 
 // Cancel crawl
 router.post('/:id/cancel', crawlController.cancelCrawl);

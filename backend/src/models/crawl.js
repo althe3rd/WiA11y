@@ -79,6 +79,7 @@ const crawlSchema = new mongoose.Schema({
     max: 100
   },
   currentUrl: String,
+  visitedUrls: [String],
 }, {
   timestamps: true
 });
