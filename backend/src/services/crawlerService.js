@@ -179,7 +179,7 @@ class CrawlerService {
     
     const options = new chrome.Options();
     
-    // Set common Chrome arguments
+    // Update Chrome arguments
     options.addArguments(
       '--headless=new',
       '--no-sandbox',
@@ -191,9 +191,13 @@ class CrawlerService {
       '--disable-setuid-sandbox',
       '--disable-web-security',
       '--enable-javascript',
-      '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      '--disable-blink-features=AutomationControlled'
+      '--disable-blink-features=AutomationControlled',
+      '--enable-features=NetworkService,NetworkServiceInProcess'
     );
+
+    // Add experimental options for better stealth
+    options.set('excludeSwitches', ['enable-automation']);
+    options.set('useAutomationExtension', false);
 
     // Set the Chrome binary path explicitly in production
     const chromeBinary = process.env.NODE_ENV === 'production'
@@ -318,7 +322,9 @@ class CrawlerService {
     }
   }
 
-  async processUrl(crawlId, url, driver, crawlRate) {
+  async processUrl(crawlId, url, driver, crawlRate, retryCount = 0) {
+    const MAX_RETRIES = 2;
+    
     const job = this.activeJobs.get(crawlId);
     if (!job?.isRunning) {
       console.log('Job is not running, skipping URL:', url);
@@ -330,19 +336,25 @@ class CrawlerService {
     console.log(`Current progress: ${crawl.pagesScanned}/${crawl.pageLimit} pages`);
 
     try {
-      // Add stealth mode headers
-      await driver.executeScript(`
-        Object.defineProperty(navigator, 'webdriver', {
-          get: () => false,
-        });
-      `);
+      // Replace the problematic stealth code with CDP commands
+      const cdpConnection = await driver.createCDPConnection('page');
+      await cdpConnection.execute('Page.addScriptToEvaluateOnNewDocument', {
+        source: `
+          Object.defineProperties(navigator, {
+            webdriver: {
+              get: () => undefined
+            }
+          });
+          window.chrome = {
+            runtime: {}
+          };
+        `
+      });
 
-      // Set a custom user agent
-      await driver.executeScript(`
-        Object.defineProperty(navigator, 'userAgent', {
-          get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        });
-      `);
+      // Set a custom user agent via CDP
+      await cdpConnection.execute('Network.setUserAgentOverride', {
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      });
 
       await driver.get(url);
 
@@ -401,8 +413,20 @@ class CrawlerService {
     } catch (error) {
       console.error(`Error processing ${url}:`, {
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
+        retry: retryCount
       });
+      
+      if (retryCount < MAX_RETRIES) {
+        console.log(`Retrying ${url} (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        return this.processUrl(crawlId, url, driver, crawlRate, retryCount + 1);
+      }
+      
+      // If all retries failed, mark as visited and continue
+      await this.markUrlAsVisited(crawlId, url);
+      return;
     }
   }
 
