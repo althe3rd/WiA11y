@@ -188,8 +188,10 @@ class CrawlerService {
       '--ignore-certificate-errors',
       '--disable-extensions',
       '--disable-setuid-sandbox',
-      '--disable-web-security',  // Add this to help with some sites' security policies
-      '--enable-javascript'      // Explicitly enable JavaScript
+      '--disable-web-security',
+      '--enable-javascript',
+      '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      '--disable-blink-features=AutomationControlled'
     );
 
     // Set the Chrome binary path explicitly in production
@@ -327,46 +329,31 @@ class CrawlerService {
     console.log(`Current progress: ${crawl.pagesScanned}/${crawl.pageLimit} pages`);
 
     try {
-      // Check if the crawl has been cancelled
-      if (crawl.status === 'cancelled') {
-        console.log(`Crawl ${crawlId} has been cancelled, stopping processing`);
-        job.isRunning = false;
-        this.queue = [];
-        return;
-      }
+      // Add stealth mode headers
+      await driver.executeScript(`
+        Object.defineProperty(navigator, 'webdriver', {
+          get: () => false,
+        });
+      `);
 
-      if (!job || !job.isRunning) {
-        console.log(`Job ${crawlId} is no longer running, skipping processing`);
-        this.queue = [];
-        return;
-      }
-
-      const currentDepth = this.urlDepths.get(url) || 1;
-      
-      console.log(`Processing URL at depth ${currentDepth}/${crawl.depthLimit}, pages scanned: ${crawl.pagesScanned}/${crawl.pageLimit}`);
-
-      // Normalize URL to prevent duplicates with/without trailing slash
-      const normalizedUrl = url.replace(/\/$/, '');
-
-      if (currentDepth > crawl.depthLimit) {
-        console.log(`Skipping ${url} - exceeds depth limit of ${crawl.depthLimit}`);
-        return;
-      }
-
-      // Rate limiting
-      await new Promise(resolve => setTimeout(resolve, (60 / crawlRate) * 1000));
-
-      if (!this.activeJobs.get(crawlId)?.isRunning) {
-        console.log(`Job ${crawlId} was cancelled during processing`);
-        return;
-      }
+      // Set a custom user agent
+      await driver.executeScript(`
+        Object.defineProperty(navigator, 'userAgent', {
+          get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        });
+      `);
 
       await driver.get(url);
-      // Wait for page load
+
+      // Wait for page load with timeout
       await driver.wait(async () => {
         const state = await driver.executeScript('return document.readyState');
         return state === 'complete';
-      }, 10000);
+      }, 30000);
+
+      // Add a small delay to allow dynamic content
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       console.log(`Successfully loaded ${url}`);
       
       // Run axe-core analysis
@@ -411,7 +398,10 @@ class CrawlerService {
       // Let processQueue handle the next URL
       return;
     } catch (error) {
-      console.error(`Error processing ${url}:`, error);
+      console.error(`Error processing ${url}:`, {
+        error: error.message,
+        stack: error.stack
+      });
     }
   }
 
@@ -594,29 +584,65 @@ class CrawlerService {
   async extractLinks(driver) {
     try {
       // Wait for the page to be fully loaded
-      await driver.wait(until.documentComplete, 10000);
-      
-      const links = await driver.executeScript(`
+      await driver.wait(async () => {
+        const state = await driver.executeScript('return document.readyState');
+        return state === 'complete';
+      }, 10000);
+
+      // Add a small delay to allow dynamic content to load
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // First try the direct approach
+      let links = await driver.executeScript(`
         return Array.from(document.querySelectorAll('a[href]'))
           .map(a => {
             try {
-              return new URL(a.href).toString();
+              return new URL(a.href, window.location.href).toString();
             } catch (e) {
               return null;
             }
           })
           .filter(href => href && href.startsWith('http'));
       `);
-      
+
+      // If no links found, try alternative methods
+      if (!links || links.length === 0) {
+        console.log('No links found with primary method, trying alternative...');
+        
+        // Get the page source and parse with cheerio as backup
+        const pageSource = await driver.getPageSource();
+        const currentUrl = await driver.getCurrentUrl();
+        const $ = cheerio.load(pageSource);
+        
+        links = $('a[href]')
+          .map((_, el) => {
+            try {
+              const href = $(el).attr('href');
+              return new URL(href, currentUrl).toString();
+            } catch (e) {
+              return null;
+            }
+          })
+          .get()
+          .filter(href => href && href.startsWith('http'));
+      }
+
+      // Log detailed information about the extraction
       console.log('Link extraction results:', {
         total: links.length,
         sample: links.slice(0, 5),
-        pageUrl: await driver.getCurrentUrl()
+        pageUrl: await driver.getCurrentUrl(),
+        pageTitle: await driver.getTitle(),
+        pageState: await driver.executeScript('return document.readyState')
       });
-      
+
       return links;
     } catch (error) {
-      console.error('Error extracting links:', error);
+      console.error('Error extracting links:', {
+        error: error.message,
+        stack: error.stack,
+        currentUrl: await driver.getCurrentUrl().catch(() => 'unknown')
+      });
       return [];
     }
   }
@@ -814,6 +840,9 @@ class CrawlerService {
       if (!crawl) {
         throw new Error('Crawl not found');
       }
+
+      // Add a small delay to allow UI to show loading state
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Start the actual crawl process
       await this.crawlDomain(
