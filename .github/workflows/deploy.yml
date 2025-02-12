@@ -31,6 +31,7 @@ jobs:
           pm2 delete wia11y || true
           # Start with production environment
           NODE_ENV=production \
+          NODE_OPTIONS="--max-old-space-size=1536" \
           MONGODB_URI="${{ secrets.MONGODB_URI }}" \
           JWT_SECRET="${{ secrets.JWT_SECRET }}" \
           CORS_ORIGIN="https://wia11y.netlify.app" \
@@ -44,5 +45,6 @@ jobs:
             --name "wia11y" \
             --time \
             --no-autorestart \
-            --exp-backoff-restart-delay=100
+            --exp-backoff-restart-delay=100 \
+            --node-args="--expose-gc"
           pm2 save 

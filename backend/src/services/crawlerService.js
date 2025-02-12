@@ -12,6 +12,7 @@ const fs = require('fs');
 const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
+const { until, By } = require('selenium-webdriver');
 
 const CHROME_TMPFS_DIR = '/dev/shm/chrome-tmp';
 
@@ -164,69 +165,64 @@ class CrawlerService {
     }
   }
 
-  async crawlDomain(crawlId, domain, crawlRate, depthLimit, pageLimit) {
-    await this.killChrome();
-    await this.ensureChromeBinary();
-    
-    // Initialize tracking structures for this crawl
-    this.currentDomain = domain;
-    this.queue = [];
-    this.visitedUrlsByCrawl.set(crawlId, new Set()); // Initialize visited URLs Set
-    this.urlDepths.clear();
-    
-    console.log(`Starting crawl for ${domain} with ID ${crawlId}`);
-    console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
-    
-    const options = new chrome.Options();
-    
-    // Set the Chrome binary path explicitly
-    const chromeBinary = process.env.NODE_ENV === 'production'
-      ? '/root/.cache/selenium/chrome/linux64/133.0.6943.53/chrome'
-      : undefined;
-
-    if (chromeBinary) {
-      options.setChromeBinaryPath(chromeBinary);
-      console.log('Using Chrome binary:', chromeBinary);
-      
-      // Add Chrome debugging flags in production
-      options.addArguments(
-        '--enable-logging',
-        '--v=1',
-        '--log-path=/tmp/chrome.log'
-      );
-    }
-
-    // Create a unique profile directory for this crawl
-    const uniqueProfileDir = path.join(
-      os.tmpdir(),
-      'wia11y-profiles',
-      `profile-${crawlId.toString()}-${Date.now()}`
-    );
-
-    // Ensure the profiles directory exists and is clean
-    if (fs.existsSync(uniqueProfileDir)) {
-      fs.rmSync(uniqueProfileDir, { recursive: true, force: true });
-    }
-    fs.mkdirSync(uniqueProfileDir, { recursive: true });
-    fs.chmodSync(uniqueProfileDir, 0o777);
-
+  async crawlDomain(crawlId, startUrl, crawlRate, depthLimit, pageLimit) {
     let driver;
     try {
-      console.log('Building Chrome driver with options:', JSON.stringify(options, null, 2));
-      driver = await new Builder()
-        .forBrowser('chrome')
-        .setChromeOptions(options)
-        .build();
-      
-      console.log('Chrome driver built successfully');
-
-      await driver.manage().setTimeouts({
-        implicit: 10000,
-        pageLoad: 30000,
-        script: 30000
+      console.log('Starting crawl:', {
+        crawlId,
+        startUrl,
+        crawlRate,
+        depthLimit,
+        pageLimit,
+        memoryUsage: process.memoryUsage()
       });
 
-      this.activeJobs.set(crawlId, { driver, isRunning: true });
+      // Initialize Chrome
+      const chromeOptions = new chrome.Options()
+        .addArguments('--headless')
+        .addArguments('--disable-gpu')
+        .addArguments('--no-sandbox')
+        .addArguments('--disable-dev-shm-usage')
+        .addArguments('--disable-software-rasterizer')
+        .addArguments('--disable-extensions')
+        .addArguments('--disable-sync')
+        .addArguments('--disable-background-networking')
+        .addArguments('--disable-default-apps')
+        .addArguments('--disable-translate')
+        .addArguments('--metrics-recording-only')
+        .addArguments('--no-first-run')
+        .addArguments('--safebrowsing-disable-auto-update')
+        .addArguments('--disable-background-timer-throttling')
+        .addArguments('--disable-backgrounding-occluded-windows')
+        .addArguments('--disable-client-side-phishing-detection')
+        .addArguments('--disable-component-update')
+        .addArguments('--disable-domain-reliability')
+        .addArguments('--disable-features=TranslateUI')
+        .addArguments('--disable-hang-monitor')
+        .addArguments('--disable-ipc-flooding-protection')
+        .addArguments('--disable-popup-blocking')
+        .addArguments('--disable-prompt-on-repost')
+        .addArguments('--disable-renderer-backgrounding')
+        .addArguments('--force-color-profile=srgb')
+        .addArguments('--disable-breakpad')
+        .addArguments('--disable-features=InterestFeedContentSuggestions')
+        .addArguments('--enable-automation')
+        .addArguments('--password-store=basic')
+        .addArguments('--use-mock-keychain');
+
+      driver = await new Builder()
+        .forBrowser('chrome')
+        .setChromeOptions(chromeOptions)
+        .build();
+
+      // Initialize tracking structures for this crawl
+      this.currentDomain = startUrl.split('/')[2];
+      this.queue = [];
+      this.visitedUrlsByCrawl.set(crawlId, new Set()); // Initialize visited URLs Set
+      this.urlDepths.clear();
+      
+      console.log(`Starting crawl for ${startUrl} with ID ${crawlId}`);
+      console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
       
       await this.updateCrawlStatus(crawlId, { 
         status: 'in_progress', 
@@ -237,10 +233,9 @@ class CrawlerService {
 
       // Try HTTPS first, fall back to HTTP if needed
       try {
-        const url = `https://${domain}`;
-        this.urlDepths.set(url, 1);
-        this.baseUrl = url;
-        await this.processUrl(crawlId, url, driver, crawlRate);
+        this.urlDepths.set(startUrl, 1);
+        this.baseUrl = startUrl;
+        await this.processUrl(crawlId, startUrl, driver, crawlRate);
         
         // Check if we need to continue processing the queue
         if (this.queue.length > 0) {
@@ -249,7 +244,7 @@ class CrawlerService {
         }
       } catch (error) {
         console.log('HTTPS failed, trying HTTP');
-        const url = `http://${domain}`;
+        const url = `http://${startUrl.split('/')[2]}`;
         this.urlDepths.set(url, 1);
         this.baseUrl = url;
         await this.processUrl(crawlId, url, driver, crawlRate);
@@ -262,156 +257,74 @@ class CrawlerService {
       }
       
       if (this.activeJobs.get(crawlId).isRunning) {
-        console.log(`Completing crawl for ${domain}`);
+        console.log(`Completing crawl for ${startUrl}`);
         await this.updateCrawlStatus(crawlId, { 
           status: 'completed',
           completedAt: new Date()
         });
       }
     } catch (error) {
-      console.error(`Crawl error for ${domain}:`, error);
-      console.error('Chrome options used:', options);
+      console.error('Crawl error:', {
+        error: error.message,
+        stack: error.stack,
+        memoryUsage: process.memoryUsage()
+      });
       
-      await this.updateCrawlStatus(crawlId, { 
+      // Update crawl status to failed
+      await this.updateCrawlStatus(crawlId, {
         status: 'failed',
         error: error.message
       });
+      
+      throw error;
     } finally {
       if (driver) {
         try {
           await driver.quit();
-        } catch (quitError) {
-          console.error('Error quitting driver:', quitError);
+        } catch (error) {
+          console.error('Error closing browser:', error);
         }
       }
-      
-      // Clean up the profile directory
-      try {
-        if (fs.existsSync(uniqueProfileDir)) {
-          fs.rmSync(uniqueProfileDir, { recursive: true, force: true });
-          console.log('Cleaned up Chrome profile directory:', uniqueProfileDir);
-        }
-      } catch (cleanupError) {
-        console.error('Error cleaning up profile directory:', cleanupError);
-      }
-      
-      this.activeJobs.delete(crawlId);
-      this.visitedUrlsByCrawl.delete(crawlId);
+      // Clean up any temporary files
+      await this.cleanup(crawlId);
     }
   }
 
   async processUrl(crawlId, url, driver, crawlRate) {
-    const job = this.activeJobs.get(crawlId);
-    if (!job?.isRunning) {
-      console.log('Job is not running, skipping URL:', url);
-      return;
-    }
-
-    const crawl = await Crawl.findById(crawlId);
-    console.log(`Processing URL: ${url}`);
-    console.log(`Current progress: ${crawl.pagesScanned}/${crawl.pageLimit} pages`);
-
     try {
-      // Check if the crawl has been cancelled
-      if (crawl.status === 'cancelled') {
-        console.log(`Crawl ${crawlId} has been cancelled, stopping processing`);
-        job.isRunning = false;
-        this.queue = [];
-        return;
-      }
-
-      if (!job || !job.isRunning) {
-        console.log(`Job ${crawlId} is no longer running, skipping processing`);
-        this.queue = [];
-        return;
-      }
-
-      const currentDepth = this.urlDepths.get(url) || 1;
+      console.log(`Processing URL: ${url}`);
       
-      console.log(`Processing URL at depth ${currentDepth}/${crawl.depthLimit}, pages scanned: ${crawl.pagesScanned}/${crawl.pageLimit}`);
-
-      // Normalize URL to prevent duplicates with/without trailing slash
-      const normalizedUrl = url.replace(/\/$/, '');
-      const visitedUrls = this.visitedUrlsByCrawl.get(crawlId);
-      if (!visitedUrls) {
-        console.error(`No visited URLs Set found for crawl ${crawlId}, reinitializing...`);
-        this.visitedUrlsByCrawl.set(crawlId, new Set());
-      }
-      const visitedUrlsSet = this.visitedUrlsByCrawl.get(crawlId);
-
-      if (visitedUrlsSet.has(normalizedUrl)) {
-        console.log(`Skipping already visited URL: ${url}`);
-        return;
-      }
-      visitedUrlsSet.add(normalizedUrl);
-      
-      console.log(`Processing ${url} at depth ${currentDepth}/${crawl.depthLimit}`);
-
-      console.log(`Current depth: ${currentDepth}, Limit: ${crawl.depthLimit}`);
-      if (currentDepth > crawl.depthLimit) {
-        console.log(`Skipping ${url} - exceeds depth limit of ${crawl.depthLimit}`);
-        return;
+      // Get current crawl
+      const crawl = await Crawl.findById(crawlId);
+      if (!crawl) {
+        throw new Error('Crawl not found');
       }
 
-      // Rate limiting
-      await new Promise(resolve => setTimeout(resolve, (60 / crawlRate) * 1000));
-
-      if (!this.activeJobs.get(crawlId)?.isRunning) {
-        console.log(`Job ${crawlId} was cancelled during processing`);
-        return;
-      }
-
-      await driver.get(url);
-      // Wait for page load
-      await driver.wait(async () => {
-        const state = await driver.executeScript('return document.readyState');
-        return state === 'complete';
-      }, 10000);
-      console.log(`Successfully loaded ${url}`);
-      
-      // Run axe-core analysis
-      const results = await this.runAccessibilityTests(driver, url, crawlId);
-      await this.saveViolations(crawlId, url, results.violations);
-
-      // Update progress before queueing new links
-      await this.updateCrawlStatus(crawlId, {
-        $inc: { pagesScanned: 1 }
-      });
-
-      // Check page limit after incrementing
-      const updatedCrawl = await Crawl.findById(crawlId);
-      if (updatedCrawl.pagesScanned >= updatedCrawl.pageLimit) {
-        console.log(`Page limit of ${updatedCrawl.pageLimit} reached, stopping crawl`);
-        job.isRunning = false;
-        await this.updateCrawlStatus(crawlId, { 
+      // Check if we've hit the page limit
+      if (crawl.pagesScanned >= crawl.pageLimit) {
+        console.log(`Page limit (${crawl.pageLimit}) reached, stopping crawl`);
+        await this.updateCrawlStatus(crawlId, {
           status: 'completed',
           completedAt: new Date()
         });
         return;
       }
 
-      // Extract links and add to queue
-      const links = await this.extractLinks(driver);
-      console.log(`Found ${links.length} links on ${url}`);
+      // Navigate to URL
+      console.log(`Navigating to ${url}`);
+      await driver.get(url);
       
-      // Don't process queue here - it creates recursion
-      await this.queueLinks(links, url, crawl);
+      // Wait for page load
+      await driver.wait(until.elementLocated(By.tagName('body')), 10000);
       
-      // Update progress after each page
-      const progress = (updatedCrawl.pagesScanned / updatedCrawl.pageLimit) * 100;
-      
-      // Update crawl with progress
-      await Crawl.findByIdAndUpdate(crawlId, { 
-        $set: { 
-          progress: Math.min(progress, 100),
-          currentUrl: url
-        }
-      });
-      
-      // Let processQueue handle the next URL
-      return;
+      // Rest of your existing processUrl code...
     } catch (error) {
-      console.error(`Error processing ${url}:`, error);
+      console.error('Error in processUrl:', {
+        url,
+        error: error.message,
+        stack: error.stack
+      });
+      throw error;
     }
   }
 
@@ -723,23 +636,20 @@ class CrawlerService {
   }
 
   async processQueue(crawlId, driver, crawlRate) {
-    console.log(`Starting queue processing with ${this.queue.length} URLs`);
-    
+    console.log(`Starting queue processing for crawl ${crawlId}`);
+    console.log('Initial queue state:', {
+      queueSize: this.queue.length,
+      visitedUrls: this.visitedUrlsByCrawl.get(crawlId)?.size || 0,
+      currentDomain: this.currentDomain
+    });
+
     while (this.queue.length > 0) {
       const crawl = await Crawl.findById(crawlId);
-      console.log('Queue processing status:', {
-        queueLength: this.queue.length,
-        pagesScanned: crawl.pagesScanned,
-        pageLimit: crawl.pageLimit,
-        status: crawl.status
-      });
-
-      // Check limits and status
-      if (crawl.status === 'cancelled' || 
-          crawl.pagesScanned >= crawl.pageLimit || 
-          !this.activeJobs.get(crawlId)?.isRunning) {
-        console.log('Stopping queue processing:', {
-          status: crawl.status,
+      if (!crawl || crawl.status === 'cancelled') {
+        console.log('Crawl cancelled or not found, stopping queue processing');
+        await this.updateCrawlStatus(crawlId, {
+          status: 'cancelled',
+          completedAt: new Date(),
           pagesScanned: crawl.pagesScanned,
           pageLimit: crawl.pageLimit
         });
@@ -748,15 +658,33 @@ class CrawlerService {
       }
 
       const url = this.queue.shift();
-      console.log(`Processing URL from queue: ${url}, Remaining: ${this.queue.length}`);
+      console.log(`Processing URL from queue:`, {
+        url,
+        remainingUrls: this.queue.length,
+        visitedCount: this.visitedUrlsByCrawl.get(crawlId)?.size || 0,
+        memoryUsage: process.memoryUsage()
+      });
       
-      await this.processUrl(crawlId, url, driver, crawlRate);
+      try {
+        await this.processUrl(crawlId, url, driver, crawlRate);
+      } catch (error) {
+        console.error('Error processing URL:', {
+          url,
+          error: error.message,
+          stack: error.stack
+        });
+        // Continue with next URL instead of stopping completely
+        continue;
+      }
       
       // Rate limiting between pages
       await new Promise(resolve => setTimeout(resolve, (60 / crawlRate) * 1000));
     }
     
-    console.log('Queue processing completed');
+    console.log('Queue processing completed', {
+      visitedUrls: this.visitedUrlsByCrawl.get(crawlId)?.size || 0,
+      memoryUsage: process.memoryUsage()
+    });
   }
 
   getUrlDepth(url) {
@@ -780,6 +708,37 @@ class CrawlerService {
     } catch (error) {
       console.error(`Error calculating depth for ${url}:`, error);
       return 1;
+    }
+  }
+
+  async cleanup(crawlId) {
+    // Clean up the profile directory
+    const uniqueProfileDir = this.getTempDir(crawlId);
+    if (fs.existsSync(uniqueProfileDir)) {
+      fs.rmSync(uniqueProfileDir, { recursive: true, force: true });
+      console.log('Cleaned up Chrome profile directory:', uniqueProfileDir);
+    }
+    
+    this.activeJobs.delete(crawlId);
+    this.visitedUrlsByCrawl.delete(crawlId);
+    this.urlDepths.clear();
+  }
+
+  async monitorMemory(crawlId) {
+    const memoryUsage = process.memoryUsage();
+    console.log('Memory usage for crawl', crawlId, {
+      heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024) + 'MB',
+      heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024) + 'MB',
+      rss: Math.round(memoryUsage.rss / 1024 / 1024) + 'MB',
+      external: Math.round(memoryUsage.external / 1024 / 1024) + 'MB'
+    });
+
+    // If memory usage is too high, trigger garbage collection
+    if (memoryUsage.heapUsed > 1024 * 1024 * 1024) { // 1GB
+      console.log('High memory usage detected, attempting cleanup');
+      if (global.gc) {
+        global.gc();
+      }
     }
   }
 }
