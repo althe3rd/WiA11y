@@ -4,6 +4,11 @@ const crawlerService = require('../services/crawlerServiceInstance');
 const Team = require('../models/team');
 const queueService = require('../services/queueService');
 
+// Add a helper function to normalize domains
+function normalizeDomain(domain) {
+  return domain.replace(/^www\./i, '');
+}
+
 const crawlController = {
   async createCrawl(req, res) {
     try {
@@ -23,6 +28,9 @@ const crawlController = {
         wcagVersion,
         wcagLevel 
       } = req.body;
+
+      // Normalize the domain by removing www.
+      const normalizedDomain = normalizeDomain(domain);
 
       // Verify user has access to the team if specified
       if (team) {
@@ -44,7 +52,7 @@ const crawlController = {
 
       const crawl = new Crawl({
         url,
-        domain,
+        domain: normalizedDomain,
         team,
         createdBy: req.user._id,
         depthLimit: Number(depthLimit),
@@ -66,12 +74,17 @@ const crawlController = {
       res.status(201).json(crawl);
     } catch (error) {
       console.error('Create crawl error:', error);
-      res.status(400).json({ error: error.message });
+      res.status(500).json({ error: 'Failed to create crawl' });
     }
   },
   async getCrawls(req, res) {
     try {
-      let query = {};
+      const query = {};
+      
+      if (req.query.domain) {
+        // Normalize the domain in the search query
+        query.domain = normalizeDomain(req.query.domain);
+      }
       
       // If not network admin or admin, filter crawls
       if (!['network_admin', 'admin'].includes(req.user.role)) {
@@ -85,12 +98,10 @@ const crawlController = {
         
         const teamIds = teams.map(team => team._id);
         
-        query = {
-          $or: [
-            { team: { $in: teamIds } },
-            { createdBy: req.user._id }
-          ]
-        };
+        query.$or = [
+          { team: { $in: teamIds } },
+          { createdBy: req.user._id }
+        ];
       }
 
       const crawls = await Crawl.find(query)

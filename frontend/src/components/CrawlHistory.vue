@@ -199,15 +199,16 @@ export default {
 
       // First group by domain
       const grouped = filtered.reduce((acc, crawl) => {
-        if (!acc[crawl.domain]) {
-          acc[crawl.domain] = {};
+        const key = this.normalizeDomain(crawl.domain);
+        if (!acc[key]) {
+          acc[key] = {};
         }
         // Then subgroup by WCAG specification
         const wcagKey = `WCAG ${crawl.wcagVersion} Level ${crawl.wcagLevel}`;
-        if (!acc[crawl.domain][wcagKey]) {
-          acc[crawl.domain][wcagKey] = [];
+        if (!acc[key][wcagKey]) {
+          acc[key][wcagKey] = [];
         }
-        acc[crawl.domain][wcagKey].push(crawl);
+        acc[key][wcagKey].push(crawl);
         return acc;
       }, {});
       
@@ -231,6 +232,9 @@ export default {
     }
   },
   methods: {
+    normalizeDomain(domain) {
+      return domain.replace(/^www\./i, '');
+    },
     formatDate(dateString) {
       const date = new Date(dateString);
       return new Intl.DateTimeFormat('en-US', {
@@ -423,6 +427,9 @@ export default {
         queued: `Queued (#${crawl.queuePosition})`
       };
       return statusMap[crawl.status] || crawl.status;
+    },
+    displayDomain(crawl) {
+      return this.normalizeDomain(crawl.domain);
     }
   },
   created() {

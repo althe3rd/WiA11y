@@ -9,18 +9,29 @@
           id="url" 
           v-model="formData.url" 
           required
-          placeholder="example.com"
+          placeholder="example.com/path"
         >
+        <small class="helper-text">
+          Enter a domain with optional path (e.g., library.wisc.edu/locations)
+        </small>
       </div>
 
       <div class="form-group">
         <label for="team">Team</label>
-        <select id="team" v-model="formData.team" required>
-          <option v-if="availableTeams.length > 1" value="">Select a team</option>
+        <select 
+          id="team" 
+          v-model="formData.team" 
+          required
+          :class="{ 'error': !formData.team && formData.url }"
+        >
+          <option value="">Select a team</option>
           <option v-for="team in availableTeams" :key="team._id" :value="team._id">
             {{ team.name }}
           </option>
         </select>
+        <small class="helper-text error" v-if="!formData.team && formData.url">
+          Please select a team to start the scan
+        </small>
       </div>
 
       <div class="advanced-toggle">
@@ -85,9 +96,23 @@
       
 
       <div class="button-group">
-        <button type="submit" :disabled="isSubmitting" class="submit-button">
-          <span v-if="!isSubmitting">Start Scan</span>
-          <div v-else class="spinner"></div>
+        <button 
+          @click="startCrawl" 
+          :disabled="isSubmitting || !isValidUrl" 
+          :class="['submit-button', { 'success': showSuccess }]"
+        >
+          <span v-if="!isSubmitting && !showSuccess" class="button-content">
+            <i class="fas fa-spider"></i>
+            Start Scan
+          </span>
+          <span v-else-if="showSuccess" class="button-content success">
+            <i class="fas fa-check"></i>
+            Scan added to Queue
+          </span>
+          <span v-else class="button-content">
+            <i class="fas fa-circle-notch fa-spin"></i>
+            Starting...
+          </span>
         </button>
         <button 
           v-if="isSubmitting" 
@@ -116,7 +141,26 @@ export default {
     const showAdvanced = ref(false);
     const currentUser = computed(() => store.state.user);
     const currentCrawlId = ref(null);
+    const showSuccess = ref(false);
     
+    // Add computed property for URL validation
+    const isValidUrl = computed(() => {
+      if (!formData.value.url) return false;
+      if (!formData.value.team) return false;  // Require team selection
+      try {
+        // Add protocol if missing for URL validation
+        let urlToTest = formData.value.url;
+        if (!urlToTest.startsWith('http://') && !urlToTest.startsWith('https://')) {
+          urlToTest = 'https://' + urlToTest;
+        }
+        const url = new URL(urlToTest);
+        // Allow domain with optional path
+        return url.hostname.includes('.'); // Basic check that it's at least a valid domain
+      } catch (e) {
+        return false;
+      }
+    });
+
     // Compute available teams based on user's memberships and role
     const availableTeams = computed(() => {
       console.log('Current user:', currentUser.value); // Debug log
@@ -178,11 +222,16 @@ export default {
         if (!url.startsWith('http://') && !url.startsWith('https://')) {
           url = 'https://' + url;
         }
-        const domain = new URL(url).hostname;
+        
+        const urlObj = new URL(url);
+        // Extract domain and path
+        const domain = urlObj.hostname;
+        const startPath = urlObj.pathname !== '/' ? urlObj.pathname : '';
         
         const crawlData = {
           url,
           domain,
+          startPath,
           team: formData.value.team,
           depthLimit: parseInt(formData.value.depthLimit),
           pageLimit: parseInt(formData.value.pageLimit),
@@ -251,6 +300,40 @@ export default {
       }
     };
 
+    const startCrawl = async () => {
+      if (!formData.value.url) return;
+      
+      isSubmitting.value = true;
+      
+      try {
+        await submitCrawl();
+        
+        // Show success state
+        showSuccess.value = true;
+        
+        // Reset form
+        formData.value = {
+          url: '',
+          team: '',
+          depthLimit: '2',
+          pageLimit: 100,
+          crawlRate: '30',
+          wcagVersion: '2.1',
+          wcagLevel: 'AA'
+        };
+        
+        // Reset button after delay
+        setTimeout(() => {
+          showSuccess.value = false;
+          isSubmitting.value = false;
+        }, 2000);
+        
+      } catch (error) {
+        console.error('Error starting crawl:', error);
+        isSubmitting.value = false;
+      }
+    };
+
     onMounted(fetchTeams);
 
     return {
@@ -259,7 +342,10 @@ export default {
       isSubmitting,
       showAdvanced,
       submitCrawl,
-      cancelCrawl
+      cancelCrawl,
+      showSuccess,
+      startCrawl,
+      isValidUrl
     };
   }
 };
@@ -308,27 +394,68 @@ export default {
 }
 
 .submit-button {
- 
   position: relative;
-  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 10px 20px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 150px;
 }
 
-.spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top-color: white;
-  animation: spin 1s linear infinite;
+.submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+.submit-button:not(:disabled):hover {
+  background-color: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.submit-button.success {
+  background-color: #4CAF50;
+}
+
+.button-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.button-content.success {
+  animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
   }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Optional: Add a subtle pulse animation to the loading spinner */
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.fa-circle-notch {
+  animation: pulse 1s infinite;
 }
 
 .form-group {
@@ -399,5 +526,20 @@ button:disabled {
 
 .cancel-button:hover {
   opacity: 0.9;
+}
+
+.helper-text {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.85em;
+  color: #666;
+}
+
+.error {
+  border-color: var(--secondary-color) !important;
+}
+
+.helper-text.error {
+  color: var(--secondary-color);
 }
 </style> 
