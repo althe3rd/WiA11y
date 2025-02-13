@@ -55,12 +55,13 @@ class CrawlerService {
   async killChrome() {
     try {
       if (process.platform === 'linux') {
-        await execAsync('pkill -f chrome');
-        console.log('Killed existing Chrome processes');
+        await execAsync('pkill -f chromium || true');
+        await execAsync('pkill -f chrome || true');
+        console.log('Killed existing Chrome/Chromium processes');
       }
     } catch (error) {
       // Ignore errors as they likely mean no Chrome processes were found
-      console.log('No existing Chrome processes found');
+      console.log('No existing Chrome/Chromium processes found');
     }
   }
 
@@ -87,67 +88,30 @@ class CrawlerService {
 
   async ensureChromeBinary() {
     if (process.env.NODE_ENV === 'production') {
-      const chromeBinary = '/root/.cache/selenium/chrome/linux64/133.0.6943.53/chrome';
+      const chromeBinary = '/usr/bin/chromium';
       try {
         if (!fs.existsSync(chromeBinary)) {
-          throw new Error(`Chrome binary not found at ${chromeBinary}`);
-        }
-
-        // Check for critical libraries
-        const requiredLibs = [
-          'libatk-1.0.so.0',
-          'libatk-bridge-2.0.so.0',
-          'libcups.so.2',
-          'libdrm.so.2',
-          'libxkbcommon.so.0',
-          'libxcomposite.so.1',
-          'libxdamage.so.1',
-          'libxfixes.so.3',
-          'libxrandr.so.2',
-          'libgbm.so.1',
-          'libasound.so.2',
-          'libpango-1.0.so.0',
-          'libcairo.so.2',
-          'libatspi.so.0',
-          'libgtk-3.so.0'
-        ];
-
-        for (const lib of requiredLibs) {
-          try {
-            const { stdout, stderr } = await execAsync(`ldconfig -p | grep ${lib}`);
-            console.log(`Found library ${lib}:`, stdout.trim());
-          } catch (error) {
-            console.error(`Missing required library: ${lib}`);
-            throw new Error(`Missing required library: ${lib}`);
-          }
+          throw new Error(`Chromium binary not found at ${chromeBinary}`);
         }
 
         // Check if executable and readable
         try {
           fs.accessSync(chromeBinary, fs.constants.X_OK | fs.constants.R_OK);
         } catch (error) {
-          console.log('Setting Chrome binary permissions');
+          console.log('Setting Chromium binary permissions');
           fs.chmodSync(chromeBinary, 0o755);
         }
 
-        // Try to execute Chrome directly
+        // Try to execute Chromium directly
         try {
           const { stdout } = await execAsync(`${chromeBinary} --version`);
-          console.log('Chrome version:', stdout.trim());
+          console.log('Chromium version:', stdout.trim());
         } catch (error) {
-          console.error('Error running Chrome binary directly:', error);
-        }
-
-        // Check for required libraries
-        try {
-          const { stdout: lddOutput } = await execAsync(`ldd ${chromeBinary}`);
-          console.log('Chrome binary dependencies:', lddOutput);
-        } catch (error) {
-          console.error('Error checking Chrome dependencies:', error);
+          console.error('Error running Chromium binary directly:', error);
         }
 
         const stats = fs.statSync(chromeBinary);
-        console.log('Chrome binary verified:', {
+        console.log('Chromium binary verified:', {
           path: chromeBinary,
           exists: true,
           executable: !!(stats.mode & fs.constants.X_OK),
@@ -158,7 +122,7 @@ class CrawlerService {
           gid: stats.gid
         });
       } catch (error) {
-        console.error('Chrome binary verification failed:', error);
+        console.error('Chromium binary verification failed:', error);
         throw error;
       }
     }
@@ -171,54 +135,32 @@ class CrawlerService {
     // Initialize tracking structures for this crawl
     this.currentDomain = domain;
     this.queue = [];
-    this.visitedUrlsByCrawl.set(crawlId, new Set()); // Initialize visited URLs Set
+    this.visitedUrlsByCrawl.set(crawlId, new Set());
     this.urlDepths.clear();
     
     console.log(`Starting crawl for ${domain} with ID ${crawlId}`);
-    console.log(`Limits - Depth: ${depthLimit}, Pages: ${pageLimit}`);
     
     const options = new chrome.Options();
-    
-    // Set the Chrome binary path explicitly
-    const chromeBinary = process.env.NODE_ENV === 'production'
-      ? '/root/.cache/selenium/chrome/linux64/133.0.6943.53/chrome'
-      : undefined;
-
-    if (chromeBinary) {
-      options.setChromeBinaryPath(chromeBinary);
-      console.log('Using Chrome binary:', chromeBinary);
-      
-      // Add Chrome debugging flags in production
-      options.addArguments(
-        '--enable-logging',
-        '--v=1',
-        '--log-path=/tmp/chrome.log'
-      );
-    }
-
-    // Create a unique profile directory for this crawl
-    const uniqueProfileDir = path.join(
-      os.tmpdir(),
-      'wia11y-profiles',
-      `profile-${crawlId.toString()}-${Date.now()}`
+    options.addArguments(
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--headless',
+      '--window-size=1920,1080'
     );
 
-    // Ensure the profiles directory exists and is clean
-    if (fs.existsSync(uniqueProfileDir)) {
-      fs.rmSync(uniqueProfileDir, { recursive: true, force: true });
+    // Set Chromium binary path
+    if (process.env.NODE_ENV === 'production') {
+      options.setChromeBinaryPath('/usr/bin/chromium');
     }
-    fs.mkdirSync(uniqueProfileDir, { recursive: true });
-    fs.chmodSync(uniqueProfileDir, 0o777);
 
     let driver;
     try {
-      console.log('Building Chrome driver with options:', JSON.stringify(options, null, 2));
       driver = await new Builder()
         .forBrowser('chrome')
+        .usingServer('http://selenium-hub:4444/wd/hub') // Connect to Selenium Grid
         .setChromeOptions(options)
         .build();
-      
-      console.log('Chrome driver built successfully');
 
       await driver.manage().setTimeouts({
         implicit: 10000,
@@ -269,13 +211,8 @@ class CrawlerService {
         });
       }
     } catch (error) {
-      console.error(`Crawl error for ${domain}:`, error);
-      console.error('Chrome options used:', options);
-      
-      await this.updateCrawlStatus(crawlId, { 
-        status: 'failed',
-        error: error.message
-      });
+      console.error('Crawl error:', error);
+      throw error;
     } finally {
       if (driver) {
         try {
@@ -285,22 +222,14 @@ class CrawlerService {
         }
       }
       
-      // Clean up the profile directory
-      try {
-        if (fs.existsSync(uniqueProfileDir)) {
-          fs.rmSync(uniqueProfileDir, { recursive: true, force: true });
-          console.log('Cleaned up Chrome profile directory:', uniqueProfileDir);
-        }
-      } catch (cleanupError) {
-        console.error('Error cleaning up profile directory:', cleanupError);
-      }
-      
       this.activeJobs.delete(crawlId);
       this.visitedUrlsByCrawl.delete(crawlId);
     }
   }
 
   async processUrl(crawlId, url, driver, crawlRate) {
+    console.log(`[Crawl ${crawlId}] Processing URL: ${url}`);
+    
     const job = this.activeJobs.get(crawlId);
     if (!job?.isRunning) {
       console.log('Job is not running, skipping URL:', url);
@@ -308,7 +237,6 @@ class CrawlerService {
     }
 
     const crawl = await Crawl.findById(crawlId);
-    console.log(`Processing URL: ${url}`);
     console.log(`Current progress: ${crawl.pagesScanned}/${crawl.pageLimit} pages`);
 
     try {
@@ -362,13 +290,18 @@ class CrawlerService {
       }
 
       await driver.get(url);
-      // Wait for page load
-      await driver.wait(async () => {
-        const state = await driver.executeScript('return document.readyState');
-        return state === 'complete';
-      }, 10000);
-      console.log(`Successfully loaded ${url}`);
+      console.log(`[Crawl ${crawlId}] Successfully loaded page`);
       
+      // Add page load timing information
+      const navigationTiming = await driver.executeScript(`
+        const timing = performance.getEntriesByType('navigation')[0];
+        return {
+          loadTime: timing.loadEventEnd - timing.navigationStart,
+          domContentLoaded: timing.domContentLoadedEventEnd - timing.navigationStart
+        };
+      `);
+      console.log(`[Crawl ${crawlId}] Page load metrics:`, navigationTiming);
+
       // Run axe-core analysis
       const results = await this.runAccessibilityTests(driver, url, crawlId);
       await this.saveViolations(crawlId, url, results.violations);
@@ -411,7 +344,8 @@ class CrawlerService {
       // Let processQueue handle the next URL
       return;
     } catch (error) {
-      console.error(`Error processing ${url}:`, error);
+      console.error(`[Crawl ${crawlId}] Error processing URL ${url}:`, error);
+      throw error;
     }
   }
 

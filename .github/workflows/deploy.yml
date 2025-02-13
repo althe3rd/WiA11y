@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/**'
       - 'backend/**'
+      - 'docker-compose.yml'
 
 jobs:
   deploy:
@@ -14,6 +15,15 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
+    - name: Copy Docker files to server
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        source: "backend/,docker-compose.yml,docker-compose.dev.yml"
+        target: "/var/www/WiA11y/"
+        
     - name: Deploy to Server
       uses: appleboy/ssh-action@master
       with:
@@ -21,16 +31,25 @@ jobs:
         username: ${{ secrets.SERVER_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          cd /var/www/WiA11y/backend
-          git pull
-          npm install
-          # Verify routes are registered
-          echo "Checking registered routes..."
-          node -e "const app = require('./src/app.js'); console.log('Registered routes:', app._router.stack.filter(r => r.route).map(r => r.route.path))"
-          # Delete existing process if it exists
-          pm2 delete wia11y || true
-          # Start with production environment
-          NODE_ENV=production \
+          # Install Docker if not present
+          if ! command -v docker &> /dev/null; then
+            curl -fsSL https://get.docker.com -o get-docker.sh
+            sudo sh get-docker.sh
+          fi
+          
+          # Install Docker Compose if not present
+          if ! command -v docker-compose &> /dev/null; then
+            sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            sudo chmod +x /usr/local/bin/docker-compose
+          fi
+          
+          cd /var/www/WiA11y
+          
+          # Explicitly use production compose file
+          docker-compose -f docker-compose.yml down
+          docker-compose -f docker-compose.yml build --no-cache app
+          
+          # Start with production environment variables
           MONGODB_URI="${{ secrets.MONGODB_URI }}" \
           JWT_SECRET="${{ secrets.JWT_SECRET }}" \
           CORS_ORIGIN="https://wia11y.netlify.app" \
@@ -40,9 +59,7 @@ jobs:
           SMTP_PASS="${{ secrets.SMTP_PASS }}" \
           SMTP_FROM="${{ secrets.SMTP_FROM }}" \
           FRONTEND_URL="https://wia11y.netlify.app" \
-          pm2 start src/server.js \
-            --name "wia11y" \
-            --time \
-            --no-autorestart \
-            --exp-backoff-restart-delay=100
-          pm2 save 
+          docker-compose -f docker-compose.yml up -d
+          
+          # Prune old images
+          docker image prune -f 

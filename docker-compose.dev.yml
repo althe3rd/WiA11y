@@ -1,0 +1,62 @@
+services:
+  app:
+    build: ./backend
+    platform: linux/arm64
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongo:27017/wia11y
+      - JWT_SECRET=your_development_secret_key
+      - CORS_ORIGIN=http://localhost:8080
+      - FRONTEND_URL=http://localhost:8080
+      - CHROME_TMPFS_DIR=/tmp/chrome-tmp
+      - CHROME_BIN=/usr/bin/chromium
+    depends_on:
+      - mongo
+      - selenium-hub
+    volumes:
+      - chrome-tmp:/tmp/chrome-tmp
+      # Add source code mounting for development
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:latest
+    platform: linux/arm64
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+
+  selenium-hub:
+    image: seleniarm/hub:latest
+    container_name: selenium-hub
+    ports:
+      - "4442:4442"
+      - "4443:4443"
+      - "4444:4444"
+
+  chrome:
+    image: seleniarm/node-chromium:latest
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_MAX_SESSIONS=4
+    deploy:
+      replicas: 2
+
+volumes:
+  mongodb_data:
+  chrome-tmp: 
