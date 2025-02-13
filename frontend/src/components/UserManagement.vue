@@ -1,36 +1,56 @@
 <template>
   <div class="user-management">
     <div class="header">
-      <h2>User Management</h2>
-      <button @click="showAddModal" class="add-user-btn">
-        Add User
+      <h2 class="title">User Management</h2>
+      <div class="search-bar">
+        <i class="fas fa-search search-icon"></i>
+        <input 
+          type="text" 
+          v-model="searchQuery" 
+          placeholder="Search users..."
+          class="search-input"
+        >
+      </div>
+      <button @click="showAddUserModal" class="btn-add">
+        <i class="fas fa-plus"></i> Add User
       </button>
     </div>
 
     <div class="users-list">
-      <div v-for="user in users" :key="user._id" class="user-item">
+      <!-- Header Row -->
+      <div class="user-row header-row">
+        <div class="user-info">Name</div>
+        <div class="user-email">Email</div>
+        <div class="user-role">Role</div>
+        <div class="user-actions">Actions</div>
+      </div>
+
+      <!-- User Rows -->
+      <div v-for="user in filteredUsers" :key="user._id" class="user-row">
         <div class="user-info">
-          <h3>{{ user.name }}</h3>
-          <p>{{ user.email }}</p>
-          <span class="role-badge" :class="user.role">{{ formatRole(user.role) }}</span>
-          <div class="user-teams" v-if="user.teams && user.teams.length">
-            <h4>Teams:</h4>
-            <span v-for="team in user.teams" :key="team._id" class="team-badge">
-              {{ team.name }}
-            </span>
-          </div>
-          <div class="user-actions">
-            <button @click="editUser(user)" class="edit-btn">
-              Edit
-            </button>
-            <button 
-              @click="confirmDeleteUser(user)" 
-              class="delete-btn"
-              :disabled="user._id === currentUserId"
-            >
-              Delete
-            </button>
-          </div>
+          <span class="user-name">{{ user.name }}</span>
+        </div>
+        <div class="user-email">{{ user.email }}</div>
+        <div class="user-role">
+          <span :class="['role-badge', getRoleBadgeClass(user.role)]">
+            {{ formatRole(user.role) }}
+          </span>
+        </div>
+        <div class="user-actions">
+          <button 
+            @click="editUser(user)" 
+            class="btn-action edit"
+            :disabled="user.role === 'network_admin' && currentUser?.role !== 'network_admin'"
+          >
+            <i class="fas fa-edit"></i> Edit
+          </button>
+          <button 
+            @click="confirmDelete(user)" 
+            class="btn-action delete"
+            :disabled="user.role === 'network_admin' || user._id === currentUser?._id"
+          >
+            <i class="fas fa-trash"></i> Delete
+          </button>
         </div>
       </div>
     </div>
@@ -122,7 +142,8 @@ export default {
       showModal: false,
       editingUser: null,
       availableTeams: [],
-      currentUserId: JSON.parse(localStorage.getItem('user'))?.id,
+      currentUser: JSON.parse(localStorage.getItem('user')),
+      searchQuery: '',
       userForm: {
         name: '',
         email: '',
@@ -133,7 +154,7 @@ export default {
     }
   },
   methods: {
-    showAddModal() {
+    showAddUserModal() {
       this.editingUser = null;
       this.userForm = {
         name: '',
@@ -165,6 +186,15 @@ export default {
       return role.split('_').map(word => 
         word.charAt(0).toUpperCase() + word.slice(1)
       ).join(' ');
+    },
+    getRoleBadgeClass(role) {
+      const classes = {
+        'network_admin': 'role-network-admin',
+        'admin': 'role-admin',
+        'team_admin': 'role-team-admin',
+        'team_member': 'role-team-member'
+      };
+      return classes[role] || 'role-default';
     },
     editUser(user) {
       this.editingUser = user;
@@ -213,8 +243,8 @@ export default {
         alert(error.response?.data?.error || 'Failed to save user');
       }
     },
-    async confirmDeleteUser(user) {
-      if (user._id === this.currentUserId) {
+    async confirmDelete(user) {
+      if (user._id === this.currentUser?._id) {
         alert('Cannot delete your own account');
         return;
       }
@@ -235,8 +265,32 @@ export default {
     }
   },
   async created() {
+    // Get current user from Vuex store
+    const store = this.$store;
+    this.currentUser = store.state.user;
+    
     await this.fetchUsers();
     await this.fetchTeams();
+  },
+  watch: {
+    '$store.state.user': {
+      handler(newUser) {
+        this.currentUser = newUser;
+      },
+      immediate: true
+    }
+  },
+  computed: {
+    filteredUsers() {
+      if (!this.searchQuery) return this.users;
+      
+      const query = this.searchQuery.toLowerCase();
+      return this.users.filter(user => 
+        user.name.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query) ||
+        this.formatRole(user.role).toLowerCase().includes(query)
+      );
+    }
   }
 }
 </script>
@@ -244,73 +298,127 @@ export default {
 <style scoped>
 .user-management {
   padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  gap: 16px;
 }
 
-.add-user-btn {
-  background-color: #4CAF50;
+.title {
+  font-size: 24px;
+  color: #2c3e50;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.btn-add {
+  background: #4CAF50;
   color: white;
   border: none;
-  padding: 10px 20px;
+  padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
 }
 
 .users-list {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+
+.user-row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  grid-template-columns: 2fr 3fr 1.5fr 1.5fr;
+  padding: 16px;
+  align-items: center;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.user-item {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.user-row:last-child {
+  border-bottom: none;
 }
 
-.user-info h3 {
-  margin: 0 0 10px 0;
+.header-row {
+  background: #f5f7fa;
+  font-weight: 600;
   color: #2c3e50;
 }
 
-.user-info p {
-  margin: 0;
-  color: #666;
+.user-name {
+  font-weight: 500;
+}
+
+.user-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-action {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.btn-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.edit {
+  background: #2196F3;
+  color: white;
+}
+
+.delete {
+  background: #f44336;
+  color: white;
 }
 
 .role-badge {
-  display: inline-block;
   padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.8em;
-  margin-top: 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
-.role-badge.network_admin {
-  background-color: #2196F3;
-  color: white;
+.role-network-admin {
+  background: #E3F2FD;
+  color: #1976D2;
 }
 
-.role-badge.admin {
-  background-color: #9C27B0;
-  color: white;
+.role-admin {
+  background: #E8F5E9;
+  color: #388E3C;
 }
 
-.role-badge.team_admin {
-  background-color: #FF9800;
-  color: white;
+.role-team-admin {
+  background: #FFF3E0;
+  color: #F57C00;
 }
 
-.role-badge.user {
-  background-color: #4CAF50;
-  color: white;
+.role-team-member {
+  background: #F5F5F5;
+  color: #616161;
+}
+
+.role-default {
+  background: #ECEFF1;
+  color: #607D8B;
 }
 
 .modal-overlay {
@@ -389,43 +497,6 @@ input, select {
   margin: 2px;
 }
 
-.user-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 15px;
-}
-
-.edit-btn {
-  background-color: #2196F3;
-  color: white;
-  border: none;
-  padding: 5px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.delete-btn {
-  background-color: #f44336;
-  color: white;
-  border: none;
-  padding: 5px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.delete-btn:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
-.teams-selection {
-  max-height: 150px;
-  overflow-y: auto;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 10px;
-}
-
 .team-checkbox {
   margin: 5px 0;
 }
@@ -433,5 +504,37 @@ input, select {
 .team-checkbox label {
   margin-left: 8px;
   display: inline;
+}
+
+.search-bar {
+  flex: 1;
+  max-width: 400px;
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #666;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #2196F3;
+}
+
+.search-input::placeholder {
+  color: #999;
 }
 </style> 

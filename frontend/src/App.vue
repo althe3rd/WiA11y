@@ -34,6 +34,7 @@
 import Logo from './components/Logo.vue';
 import CrawlForm from './components/CrawlForm.vue';
 import QueueStatus from './components/QueueStatus.vue';
+import UserManagement from '@/components/UserManagement.vue'
 import { computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
@@ -43,7 +44,8 @@ export default {
   components: {
     Logo,
     CrawlForm,
-    QueueStatus
+    QueueStatus,
+    UserManagement
   },
   setup() {
     const store = useStore();
