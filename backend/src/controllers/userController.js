@@ -1,12 +1,11 @@
 const User = require('../models/user');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 const userController = {
   register: async (req, res) => {
     try {
-      const { email, password, name } = req.body;
-      console.log('Registering user:', { email, name });
+      const { name, email, password } = req.body;
 
       // Check if user already exists
       const existingUser = await User.findOne({ email });
@@ -14,24 +13,52 @@ const userController = {
         return res.status(400).json({ error: 'Email already registered' });
       }
 
+      // Check if this is the first user being created
+      const userCount = await User.countDocuments();
+      const role = userCount === 0 ? 'network_admin' : 'team_member';
+
       // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
-      
-      // Create user
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      // Create new user
       const user = new User({
+        name,
         email,
         password: hashedPassword,
-        name,
-        role: 'team_member' // Default role
+        role
       });
-      
+
       await user.save();
-      console.log('User registered successfully:', user._id);
-      
-      return res.status(201).json({ message: 'User created successfully' });
+
+      // Log the creation of first admin
+      if (role === 'network_admin') {
+        console.log('First user created with network_admin role:', {
+          name,
+          email,
+          role
+        });
+      }
+
+      // Generate JWT
+      const token = jwt.sign(
+        { userId: user._id },
+        process.env.JWT_SECRET
+      );
+
+      // Return user info (excluding password) and token
+      const userResponse = {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token
+      };
+
+      res.status(201).json(userResponse);
     } catch (error) {
       console.error('Registration error:', error);
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: 'Error registering user' });
     }
   },
 
@@ -255,6 +282,16 @@ const userController = {
     } catch (error) {
       console.error('Delete user error:', error);
       res.status(500).json({ error: 'Failed to delete user' });
+    }
+  },
+
+  getUserCount: async (req, res) => {
+    try {
+      const count = await User.countDocuments();
+      res.json({ count });
+    } catch (error) {
+      console.error('Error getting user count:', error);
+      res.status(500).json({ error: 'Error getting user count' });
     }
   }
 };

@@ -190,4 +190,6 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+router.get('/count', userController.getUserCount);
+
 module.exports = router; 

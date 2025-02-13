@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -18,7 +19,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['network_admin', 'admin', 'team_admin', 'team_member'],
+    enum: ['network_admin', 'admin', 'team_admin', 'team_member', 'user'],
     default: 'team_member'
   },
   teams: [{
@@ -36,4 +37,8 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-module.exports = mongoose.model('User', userSchema); 
+// Add any pre-save hooks or methods here
+
+const User = mongoose.model('User', userSchema);
+
+module.exports = User; 
