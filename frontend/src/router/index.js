@@ -82,6 +82,22 @@ const routes = [
     name: 'Queue',
     component: QueueView,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('../views/SettingsView.vue'),
+    meta: { 
+      requiresAuth: true,
+      requiresNetworkAdmin: true
+    },
+    beforeEnter: (to, from, next) => {
+      if (store.getters.isNetworkAdmin) {
+        next()
+      } else {
+        next({ name: 'Home' })
+      }
+    }
   }
 ];
 

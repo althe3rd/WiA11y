@@ -16,6 +16,10 @@
             <span class="trend-summary" :class="getDomainOverallTrendClass(domainData)">
               {{ getDomainOverallTrendSummary(domainData) }}
             </span>
+            <div v-if="getInProgressScan(domainData)" class="progress-bar-container">
+              <div class="progress-bar" :style="{ transform: `translateX(${getInProgressScan(domainData).progress}%)` }">
+              </div>
+            </div>
             <span class="expand-toggle">
               {{ expandedDomains.includes(domain) ? '▼' : '▶' }}
             </span>
@@ -430,6 +434,23 @@ export default {
     },
     displayDomain(crawl) {
       return this.normalizeDomain(crawl.domain);
+    },
+    getInProgressScan(domainData) {
+      const allCrawls = Object.values(domainData).flat();
+      const inProgressCrawl = allCrawls.find(crawl => crawl.status === 'in_progress');
+      
+      if (!inProgressCrawl) return null;
+      
+      // Calculate progress based on pages scanned vs page limit
+      const progress = Math.min(
+        ((inProgressCrawl.pagesScanned || 0) / (inProgressCrawl.pageLimit || 100)) * 100,
+        100
+      );
+      
+      return {
+        ...inProgressCrawl,
+        progress: progress - 100 // Offset for transform
+      };
     }
   },
   created() {
@@ -690,6 +711,9 @@ export default {
   font-size: 0.6em;
   padding: 5px 10px;
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .latest-score {
@@ -829,5 +853,26 @@ export default {
   font-size: 0.9em;
   color: #666;
   margin-left: 10px;
+}
+
+.progress-bar-container {
+  width: 100px;
+  height: 6px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #ededed;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #a07ae8 0%, #1eafed 100%);
+  
+  position: absolute;
+  left: 0;
+  transform: translateX(-100%);
+  transition: transform 0.5s ease-out;
 }
 </style> 

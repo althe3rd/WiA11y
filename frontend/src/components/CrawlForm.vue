@@ -34,6 +34,35 @@
         </small>
       </div>
 
+      <div class="button-group">
+        <button 
+          @click="startCrawl" 
+          :disabled="isSubmitting || !isValidUrl" 
+          :class="['submit-button', { 'success': showSuccess }]"
+        >
+          <span v-if="!isSubmitting && !showSuccess" class="button-content">
+            <i class="fas fa-spider"></i>
+            Start Scan
+          </span>
+          <span v-else-if="showSuccess" class="button-content success">
+            <i class="fas fa-check"></i>
+            Scan added to Queue
+          </span>
+          <span v-else class="button-content">
+            <i class="fas fa-circle-notch fa-spin"></i>
+            Starting...
+          </span>
+        </button>
+        <button 
+          v-if="isSubmitting" 
+          type="button" 
+          @click="cancelCrawl" 
+          class="cancel-button"
+        >
+          Cancel
+        </button>
+      </div>
+
       <div class="advanced-toggle">
         <button type="button" class="button-secondary" @click="showAdvanced = !showAdvanced">
           {{ showAdvanced ? 'Hide' : 'Show' }} Options
@@ -95,34 +124,7 @@
 
       
 
-      <div class="button-group">
-        <button 
-          @click="startCrawl" 
-          :disabled="isSubmitting || !isValidUrl" 
-          :class="['submit-button', { 'success': showSuccess }]"
-        >
-          <span v-if="!isSubmitting && !showSuccess" class="button-content">
-            <i class="fas fa-spider"></i>
-            Start Scan
-          </span>
-          <span v-else-if="showSuccess" class="button-content success">
-            <i class="fas fa-check"></i>
-            Scan added to Queue
-          </span>
-          <span v-else class="button-content">
-            <i class="fas fa-circle-notch fa-spin"></i>
-            Starting...
-          </span>
-        </button>
-        <button 
-          v-if="isSubmitting" 
-          type="button" 
-          @click="cancelCrawl" 
-          class="cancel-button"
-        >
-          Cancel
-        </button>
-      </div>
+      
     </form>
   </div>
 </template>
@@ -362,7 +364,7 @@ export default {
 
 .crawl-form-wrapper {
   display: grid;
-  grid-template-columns: 2fr 1fr 160px 1fr;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
   gap: 20px;
   align-items: center;
 }

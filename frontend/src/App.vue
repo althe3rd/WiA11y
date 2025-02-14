@@ -7,10 +7,20 @@
         </div>
         <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
         <router-link to="/scans" class="nav-link">Scans</router-link>
-        <router-link to="/queue" class="nav-link">Queue</router-link>
+        <router-link to="/queue" class="nav-link" :class="{ active: $route.path === '/queue' }">
+          Queue
+        </router-link>
         <router-link v-if="isNetworkAdmin || isAdmin" to="/users" class="nav-link">Users</router-link>
         <router-link to="/team-management" class="nav-link" v-if="isTeamAdmin || isNetworkAdmin">
           Team Management
+        </router-link>
+        <router-link 
+          v-if="isNetworkAdmin" 
+          to="/settings" 
+          class="nav-link" 
+          :class="{ active: $route.path === '/settings' }"
+        >
+          Settings
         </router-link>
       </div>
       <div class="nav-right">
