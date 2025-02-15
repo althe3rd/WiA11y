@@ -92,7 +92,7 @@ export default {
       loading.value = true;
       try {
         const { data } = await axios.get(
-          `http://localhost:3000/api/violations/${props.scanId}/${encodeURIComponent(props.url)}`,
+          `${process.env.VUE_APP_API_URL}/api/violations/${props.scanId}/${encodeURIComponent(props.url)}`,
           {
             headers: {
               'Authorization': `Bearer ${token.value}`
@@ -129,7 +129,7 @@ export default {
               previewFrame.value.contentWindow.postMessage({
                 type: 'highlight',
                 selector: selector
-              }, 'http://localhost:3000')
+              }, process.env.VUE_APP_API_URL)
             })
           })
         } else {
@@ -137,7 +137,7 @@ export default {
           previewFrame.value.contentWindow.postMessage({
             type: 'highlight',
             selector: null
-          }, 'http://localhost:3000')
+          }, process.env.VUE_APP_API_URL)
         }
       }
       highlightedNode.value = null;
@@ -149,7 +149,7 @@ export default {
           previewFrame.value.contentWindow.postMessage({
             type: 'highlight',
             selector: selector
-          }, 'http://localhost:3000')
+          }, process.env.VUE_APP_API_URL)
         })
         highlightedNode.value = selectors;
       }

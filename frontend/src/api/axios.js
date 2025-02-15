@@ -2,12 +2,8 @@ import axios from 'axios';
 import store from '../store';
 import router from '../router';
 
-const baseURL = process.env.NODE_ENV === 'production'
-  ? 'https://wia11y-api.heroiccloud.com'
-  : 'http://localhost:3000';
-
 const instance = axios.create({
-  baseURL,
+  baseURL: process.env.VUE_APP_API_URL,
   headers: {
     'Content-Type': 'application/json'
   }

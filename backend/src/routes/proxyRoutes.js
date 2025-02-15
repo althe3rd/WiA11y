@@ -24,10 +24,11 @@ router.get('/:encodedUrl', async (req, res) => {
 
     const modifiedHtml = await proxyService.fetchAndModifyPage(url);
     
-    // Set headers to allow iframe embedding
-    res.setHeader('Content-Security-Policy', "frame-ancestors 'self' http://localhost:8080");
+    // Set headers to allow iframe embedding from both development and production domains
+    const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:8080'];
+    res.setHeader('Content-Security-Policy', `frame-ancestors 'self' ${allowedOrigins.join(' ')}`);
     res.removeHeader('X-Frame-Options');
-    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:8080');
+    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Content-Type', 'text/html');
