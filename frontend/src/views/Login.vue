@@ -82,11 +82,11 @@ export default {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--background-color);
 }
 
 .login-form {
-  background: white;
+  background: var(--card-background);
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -101,23 +101,37 @@ export default {
 label {
   display: block;
   margin-bottom: 0.5rem;
+  color: var(--text-color);
 }
 
 input {
   width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
 }
 
 button {
   width: 100%;
   padding: 0.75rem;
-  background-color: #4CAF50;
+  background-color: var(--primary-color);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+button:hover {
+  background-color: var(--primary-hover);
 }
 
 .error {
@@ -136,8 +150,13 @@ button {
 }
 
 .register-link a {
-  color: #4CAF50;
+  color: var(--primary-color);
   text-decoration: none;
+  transition: color 0.2s;
+}
+
+.register-link a:hover {
+  color: var(--primary-hover);
 }
 
 .forgot-password-link {
@@ -146,7 +165,12 @@ button {
 }
 
 .forgot-password-link a {
-  color: #4CAF50;
+  color: var(--primary-color);
   text-decoration: none;
+  transition: color 0.2s;
+}
+
+.forgot-password-link a:hover {
+  color: var(--primary-hover);
 }
 </style> 

@@ -17,8 +17,21 @@ const proxyRoutes = require('./routes/proxyRoutes');
 const emailService = require('./services/emailService');
 const authRoutes = require('./routes/auth');
 const queueRoutes = require('./routes/queueRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+const path = require('path');
+const fs = require('fs').promises;
 
 const app = express();
+
+// Ensure uploads directories exist
+(async () => {
+  try {
+    await fs.mkdir(path.join(__dirname, '../uploads/logos'), { recursive: true });
+    console.log('Uploads directories created successfully');
+  } catch (error) {
+    console.error('Error creating uploads directories:', error);
+  }
+})();
 
 // Log environment variables for debugging
 console.log('Loading environment:', process.env.NODE_ENV);
@@ -75,6 +88,10 @@ app.use('/api/violations', violationRoutes);
 app.use('/api/proxy', proxyRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/queue', queueRoutes);
+app.use('/api/settings', settingsRoutes);
+
+// Serve uploaded files from the root uploads directory
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Add 404 handler
 app.use((req, res) => {

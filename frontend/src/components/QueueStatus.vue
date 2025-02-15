@@ -1,23 +1,24 @@
 <template>
-  <div class="queue-status" v-if="hasActiveScans">
+    <router-link to="/queue" class="queue-status" v-if="hasActiveScans">
     <div class="status-indicator">
       <div class="scanning-icon" v-if="activeCrawls > 0">
         <LoadingSpinner size="small" />
       </div>
       <div class="status-text">
-        <span v-if="activeCrawls > 0">Scanning in Progress</span>
+        <span v-if="activeCrawls > 0" class="status-text-active">Scanning in Progress</span>
         <span v-if="queuedCrawls > 0" class="queue-count">
           {{ queuedCrawls }} in Queue
         </span>
       </div>
     </div>
-  </div>
+    </router-link>
 </template>
 
 <script>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import api from '../api/axios'  // Use the configured axios instance
 import LoadingSpinner from './LoadingSpinner.vue'
+import { useRouter } from 'vue-router';
 
 export default {
   name: 'QueueStatus',
@@ -68,7 +69,18 @@ export default {
   background: var(--background-color);
   border-radius: 6px;
   font-size: 0.9em;
+  border: 1px solid transparent;
 }
+
+a {
+  text-decoration: none;
+}
+
+a:hover, a:focus {
+  border: 1px solid var(--primary-color);
+}
+
+
 
 .status-indicator {
   display: flex;
@@ -87,9 +99,15 @@ export default {
   gap: 2px;
 }
 
+.status-text-active {
+  color: rgba(0, 0, 0, 0.8);
+}
+
 .queue-count {
   color: var(--primary-color);
   font-weight: 500;
+  font-size: 0.9em;
+  line-height: 1;
 }
 
 /* Make the spinner smaller */

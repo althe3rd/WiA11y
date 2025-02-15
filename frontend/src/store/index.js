@@ -1,6 +1,7 @@
 import { createStore } from 'vuex';
 import api from '../api/axios';
 import axios from 'axios';
+import settings from './modules/settings'
 
 export default createStore({
   state: {
@@ -51,7 +52,8 @@ export default createStore({
           }
         }
       }
-    }
+    },
+    settings
   },
   mutations: {
     setUser(state, user) {

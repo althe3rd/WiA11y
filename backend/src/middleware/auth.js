@@ -62,7 +62,7 @@ const isNetworkAdmin = async (req, res, next) => {
 
 const isTeamAdmin = async (req, res, next) => {
   try {
-    if (!['network_admin', 'admin', 'team_admin'].includes(req.user.role)) {
+    if (!['network_admin', 'team_admin'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Team admin access required' });
     }
     next();
@@ -71,4 +71,9 @@ const isTeamAdmin = async (req, res, next) => {
   }
 };
 
-module.exports = { auth, isAdmin, isNetworkAdmin, isTeamAdmin }; 
+module.exports = {
+  auth,
+  isAdmin,
+  isNetworkAdmin,
+  isTeamAdmin
+}; 

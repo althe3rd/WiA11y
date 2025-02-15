@@ -1,3 +1,67 @@
 <template>
-    <svg width="42" height="42" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 83.62 65.39"><defs><linearGradient id="a" x1="73.6" x2="52.02" y1="6.79" y2="57.5" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#afe1f0"/><stop offset=".49" stop-color="#4882b6"/><stop offset=".6" stop-color="#0579a9"/><stop offset="1" stop-color="#3254a5"/></linearGradient><linearGradient id="b" x1="28.86" x2="10.88" y1="11.07" y2="53.32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#c42126"/><stop offset=".76" stop-color="#e61e25"/><stop offset="1" stop-color="#a91e22"/></linearGradient><linearGradient id="c" x1="46.02" x2="23.64" y1="6" y2="58.63" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#78287c"/><stop offset=".19" stop-color="#a5228e"/><stop offset=".76" stop-color="#6e4d9f"/><stop offset="1" stop-color="#562d8c"/></linearGradient><linearGradient id="d" x1="59.2" x2="41.38" y1="11.09" y2="53" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#f1f0f0"/><stop offset=".49" stop-color="#c5c4c4"/><stop offset=".6" stop-color="#b3b3b3"/><stop offset="1" stop-color="#666766"/></linearGradient></defs><path d="M74.73 7.27H62.42l-12 48.83c-.12.49.25.96.76.96h11.08c.65 0 1.22-.44 1.36-1.06L74.74 7.26Z" data-name="Layer 8" style="fill:url(#a)"/><path d="M7.61 7.27h12.31l12.24 49.8H20.09c-.9 0-1.2-.46-1.36-1.06L7.61 7.27Z" data-name="Layer 5" style="fill:url(#b)"/><path d="M37.9 7.28c-.59 0-1.11.38-1.28.94L22.99 52.64s-1.25 4.26-3.01 4.42h12.8L49 7.27H37.9Z" data-name="Layer 6" style="fill:url(#c)"/><path d="M62.61 57.07H51.23c-.66 0-1.24-.46-1.39-1.11L39.17 9.53c-.07-.3-.35-1.98-1.32-2.26h12.07c.65 0 1.22.44 1.36 1.06l9.5 45.57s.61 3.18 1.62 3.17h.2Z" data-name="Layer 7" style="fill:url(#d)"/></svg>
-  </template> 
+  <div class="logo">
+    <logo-default v-if="!logo && useDefaultLogo" />
+    <template v-else>
+      <img v-if="logo" :src="logoUrl" alt="Application Logo" />
+      <h1 v-else class="text-logo">{{ title }}</h1>
+    </template>
+  </div>
+</template>
+
+<script>
+import { computed } from 'vue'
+import { useStore } from 'vuex'
+import LogoDefault from './Logo-default.vue'
+
+export default {
+  name: 'Logo',
+  components: {
+    'logo-default': LogoDefault
+  },
+  setup() {
+    const store = useStore()
+    const logo = computed(() => store.state.settings.logo)
+    const title = computed(() => store.state.settings.title)
+    const useDefaultLogo = computed(() => store.state.settings.useDefaultLogo)
+    
+    // Compute the full logo URL
+    const logoUrl = computed(() => {
+      if (!logo.value) return null
+      // If the logo URL is already absolute (starts with http), use it as is
+      if (logo.value.startsWith('http')) {
+        return logo.value
+      }
+      // Otherwise, prepend the API URL
+      return `${process.env.VUE_APP_API_URL}${logo.value}`
+    })
+    
+    return {
+      logo,
+      logoUrl,
+      title,
+      useDefaultLogo
+    }
+  }
+}
+</script>
+
+<style scoped>
+.logo {
+  display: flex;
+  align-items: center;
+}
+
+.logo img {
+  height: 32px;
+  object-fit: contain;
+}
+
+.text-logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 0;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+</style> 

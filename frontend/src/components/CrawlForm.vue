@@ -64,9 +64,15 @@
       </div>
 
       <div class="advanced-toggle">
-        <button type="button" class="button-secondary" @click="showAdvanced = !showAdvanced">
-          {{ showAdvanced ? 'Hide' : 'Show' }} Options
-          <span class="toggle-icon">{{ showAdvanced ? '▼' : '▶' }}</span>
+        <button 
+          type="button" 
+          class="options-toggle-btn" 
+          @click="showAdvanced = !showAdvanced"
+          :class="{ 'active': showAdvanced }"
+          :title="showAdvanced ? 'Hide scan options' : 'Show scan options'"
+        >
+          <i class="fas fa-sliders-h"></i>
+          <span class="options-text">{{ showAdvanced ? 'Hide Options' : 'Scan Options' }}</span>
         </button>
       </div>
 
@@ -364,7 +370,7 @@ export default {
 
 .crawl-form-wrapper {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr 150px;
   gap: 20px;
   align-items: center;
 }
@@ -374,25 +380,63 @@ export default {
 }
 
 .advanced-toggle {
+  margin: 1rem 0;
+  display: flex;
+  justify-content: flex-end;
+}
 
-  text-align: left;
+.options-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: transparent;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  color: #666;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button.options-toggle-btn:hover:not(:disabled) {
+  background-color: #f5f5f5;
+  border: 1px solid var(--primary-color);
+  color: #333;
+}
+
+.options-toggle-btn.active {
+  background-color: var(--background-color);
+  border-color: var(--primary-color);
+  color: #333;
+}
+
+.options-toggle-btn i {
+  font-size: 1rem;
+}
+
+.options-text {
+  font-weight: 500;
 }
 
 .advanced-options {
-  grid-column: span 4;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  padding: 20px;
-  background: var(--background-color);
-  border-radius: 6px;
-  margin: 10px 0;
+  margin-top: 1rem;
+  padding: 1.5rem;
+  background-color: var(--background-color);
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  animation: slideDown 0.2s ease-out;
 }
 
-.toggle-icon {
-  display: inline-block;
-  margin-left: 5px;
-  font-size: 0.8em;
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .submit-button {

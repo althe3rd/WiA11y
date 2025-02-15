@@ -10,12 +10,14 @@ import AllScans from '../views/AllScans.vue';
 import ForgotPassword from '../views/ForgotPassword.vue';
 import ResetPassword from '../views/ResetPassword.vue';
 import QueueView from '../views/QueueView.vue';
+import MarketingHome from '../views/MarketingHome.vue';
 import store from '../store';
 
 const routes = [
   {
     path: '/',
-    redirect: '/dashboard'
+    name: 'home',
+    component: MarketingHome
   },
   {
     path: '/login',
@@ -111,7 +113,7 @@ router.beforeEach(async (to, from, next) => {
   console.log('Route navigation:', { to: to.path, from: from.path });
   
   const isAuthenticated = store.state.token != null;
-  const publicRoutes = ['login', 'register', 'forgot-password'];
+  const publicRoutes = ['home', 'login', 'register', 'forgot-password'];
   
   console.log('Auth check:', {
     isAuthenticated,
@@ -125,7 +127,10 @@ router.beforeEach(async (to, from, next) => {
       name: 'login', 
       query: { redirect: to.fullPath }
     });
-  } else if (isAuthenticated && publicRoutes.includes(to.name)) {
+  } else if (isAuthenticated && to.name === 'home') {
+    console.log('Authenticated user accessing home, redirecting to dashboard');
+    next({ name: 'Dashboard' });
+  } else if (isAuthenticated && publicRoutes.includes(to.name) && to.name !== 'home') {
     console.log('Authenticated user accessing public route, redirecting to dashboard');
     next({ name: 'Dashboard' });
   } else {

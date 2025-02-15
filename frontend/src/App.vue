@@ -61,8 +61,12 @@ export default {
     const store = useStore();
     const router = useRouter();
     
-    // Fetch teams when app loads
+    // Fetch teams and settings when app loads
     onMounted(async () => {
+      // Always fetch settings
+      await store.dispatch('settings/fetchSettings');
+      
+      // Only fetch teams if authenticated
       if (store.getters.isAuthenticated) {
         await store.dispatch('fetchTeams');
       }
@@ -127,13 +131,15 @@ export default {
   async created() {
     console.log('App created, initializing auth...');
     await this.$store.dispatch('initializeAuth');
+    // Always fetch settings, regardless of auth status
+    await this.$store.dispatch('settings/fetchSettings');
   }
 }
 </script>
 
 <style>
 :root {
-  --primary-color: #8338EC;
+  --primary-color: #388fec;
   --primary-hover: #7029d8;
   --secondary-color: #FF006E;
   --text-color: #2c3e50;
@@ -198,7 +204,7 @@ body {
 
 .router-link-active {
   color: var(--primary-color);
-  background-color: rgba(131, 56, 236, 0.1);
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .button-primary {

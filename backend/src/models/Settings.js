@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const settingsSchema = new mongoose.Schema({
   primaryColor: {
     type: String,
-    default: '#7055A4',
+    default: '#388fec',
     validate: {
       validator: function(v) {
         return /^#[0-9A-Fa-f]{6}$/.test(v);
@@ -13,7 +13,7 @@ const settingsSchema = new mongoose.Schema({
   },
   secondaryColor: {
     type: String,
-    default: '#0579A9',
+    default: '#FF006E',
     validate: {
       validator: function(v) {
         return /^#[0-9A-Fa-f]{6}$/.test(v);
@@ -21,9 +21,19 @@ const settingsSchema = new mongoose.Schema({
       message: 'Secondary color must be a valid hex color code'
     }
   },
+  title: {
+    type: String,
+    default: 'WiA11y',
+    trim: true,
+    maxLength: 50
+  },
   logo: {
     type: String,
     default: null
+  },
+  useDefaultLogo: {
+    type: Boolean,
+    default: true
   }
 }, {
   timestamps: true

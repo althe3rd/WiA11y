@@ -7,21 +7,50 @@
         <h2>Brand Settings</h2>
         
         <div class="setting-group">
-          <h3>Logo</h3>
-          <div class="logo-preview" v-if="currentLogo">
-            <img :src="currentLogo" alt="Current logo" />
-          </div>
-          <div class="logo-upload">
+          <h3>Application Title</h3>
+          <div class="title-input">
             <input 
-              type="file" 
-              ref="logoInput"
-              @change="handleLogoUpload" 
-              accept="image/*"
-              class="file-input"
+              type="text" 
+              v-model="settings.title"
+              placeholder="Enter application title"
+              maxlength="50"
             />
-            <button @click="$refs.logoInput.click()" class="upload-btn">
-              {{ currentLogo ? 'Change Logo' : 'Upload Logo' }}
-            </button>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3>Logo</h3>
+          <div class="logo-options">
+            <label class="default-logo-toggle">
+              <input 
+                type="checkbox" 
+                v-model="settings.useDefaultLogo"
+              />
+              Use Default Logo
+            </label>
+          </div>
+          <div v-if="!settings.useDefaultLogo">
+            <div class="logo-preview" v-if="currentLogo">
+              <img :src="logoUrl" alt="Current logo" />
+              <button @click="removeLogo" class="remove-logo-btn">
+                Remove Logo
+              </button>
+            </div>
+            <div class="logo-upload">
+              <input 
+                type="file" 
+                ref="logoInput"
+                @change="handleLogoUpload" 
+                accept="image/*"
+                class="file-input"
+              />
+              <button @click="$refs.logoInput.click()" class="upload-btn">
+                {{ currentLogo ? 'Change Logo' : 'Upload Logo' }}
+              </button>
+            </div>
+          </div>
+          <div v-else class="default-logo-preview">
+            <LogoDefault />
           </div>
         </div>
 
@@ -52,6 +81,7 @@
                   type="color" 
                   v-model="settings.secondaryColor"
                   @change="handleColorChange"
+                  placeholder="#000000"
                 />
                 <input 
                   type="text" 
@@ -62,15 +92,18 @@
               </div>
             </div>
           </div>
+          <button @click="revertColors" class="revert-btn">
+            Revert Colors to Defaults
+          </button>
         </div>
 
         <div class="setting-actions">
           <button 
             @click="saveSettings" 
             class="save-btn"
-            :disabled="!hasChanges"
+            :disabled="!hasChanges || isLoading"
           >
-            Save Changes
+            {{ isLoading ? 'Saving...' : 'Save Changes' }}
           </button>
         </div>
       </div>
@@ -79,42 +112,47 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
-import axios from 'axios'
+import LogoDefault from '../components/Logo-default.vue'
 
 export default {
   name: 'SettingsView',
+  components: {
+    'logo-default': LogoDefault
+  },
   setup() {
     const store = useStore()
     const logoInput = ref(null)
-    const currentLogo = ref(null)
-    const originalSettings = ref(null)
     const settings = ref({
-      primaryColor: '#7055A4',
-      secondaryColor: '#0579A9'
+      primaryColor: store.state.settings.primaryColor,
+      secondaryColor: store.state.settings.secondaryColor,
+      title: store.state.settings.title,
+      useDefaultLogo: store.state.settings.useDefaultLogo
     })
     
-    // Load current settings
-    const loadSettings = async () => {
-      try {
-        const token = localStorage.getItem('token')
-        const response = await axios.get(`${process.env.VUE_APP_API_URL}/api/settings`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        settings.value = { ...response.data }
-        originalSettings.value = { ...response.data }
-        if (response.data.logo) {
-          currentLogo.value = response.data.logo
-        }
-      } catch (error) {
-        console.error('Failed to load settings:', error)
-      }
+    // Default colors
+    const defaultColors = {
+      primaryColor: '#388fec',
+      secondaryColor: '#FF006E'
     }
-
+    
+    const currentLogo = computed(() => store.state.settings.logo)
+    const isLoading = computed(() => store.state.settings.isLoading)
+    
+    const logoUrl = computed(() => {
+      if (!currentLogo.value) return null
+      if (currentLogo.value.startsWith('http')) {
+        return currentLogo.value
+      }
+      return `${process.env.VUE_APP_API_URL}${currentLogo.value}`
+    })
+    
     const hasChanges = computed(() => {
-      if (!originalSettings.value) return false
-      return JSON.stringify(settings.value) !== JSON.stringify(originalSettings.value)
+      return settings.value.primaryColor !== store.state.settings.primaryColor ||
+             settings.value.secondaryColor !== store.state.settings.secondaryColor ||
+             settings.value.title !== store.state.settings.title ||
+             settings.value.useDefaultLogo !== store.state.settings.useDefaultLogo
     })
 
     const handleLogoUpload = async (event) => {
@@ -125,21 +163,8 @@ export default {
       formData.append('logo', file)
 
       try {
-        const token = localStorage.getItem('token')
-        const response = await axios.post(
-          `${process.env.VUE_APP_API_URL}/api/settings/logo`,
-          formData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'multipart/form-data'
-            }
-          }
-        )
-        currentLogo.value = response.data.logo
-        settings.value.logo = response.data.logo
+        await store.dispatch('settings/uploadLogo', formData)
       } catch (error) {
-        console.error('Failed to upload logo:', error)
         alert('Failed to upload logo. Please try again.')
       }
     }
@@ -148,44 +173,66 @@ export default {
       // Validate color format
       const colorRegex = /^#[0-9A-Fa-f]{6}$/
       if (!colorRegex.test(settings.value.primaryColor)) {
-        settings.value.primaryColor = originalSettings.value.primaryColor
+        settings.value.primaryColor = store.state.settings.primaryColor
       }
       if (!colorRegex.test(settings.value.secondaryColor)) {
-        settings.value.secondaryColor = originalSettings.value.secondaryColor
+        settings.value.secondaryColor = store.state.settings.secondaryColor
       }
     }
 
+    const revertColors = () => {
+      settings.value.primaryColor = defaultColors.primaryColor
+      settings.value.secondaryColor = defaultColors.secondaryColor
+    }
+
+    const removeLogo = async () => {
+      try {
+        if (!confirm('Are you sure you want to remove the logo?')) {
+          return;
+        }
+        await store.dispatch('settings/removeLogo');
+      } catch (error) {
+        alert('Failed to remove logo. Please try again.');
+      }
+    };
+
     const saveSettings = async () => {
       try {
-        const token = localStorage.getItem('token')
-        await axios.post(
-          `${process.env.VUE_APP_API_URL}/api/settings`,
-          settings.value,
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        )
-        originalSettings.value = { ...settings.value }
-        // Update global CSS variables
-        document.documentElement.style.setProperty('--primary-color', settings.value.primaryColor)
-        document.documentElement.style.setProperty('--secondary-color', settings.value.secondaryColor)
+        const updatedSettings = await store.dispatch('settings/updateSettings', settings.value)
+        // Update the local settings ref to match the server response
+        settings.value = {
+          primaryColor: updatedSettings.primaryColor,
+          secondaryColor: updatedSettings.secondaryColor,
+          title: updatedSettings.title,
+          useDefaultLogo: updatedSettings.useDefaultLogo
+        }
         alert('Settings saved successfully')
       } catch (error) {
-        console.error('Failed to save settings:', error)
         alert('Failed to save settings. Please try again.')
       }
     }
 
-    // Load settings on component mount
-    loadSettings()
+    onMounted(async () => {
+      await store.dispatch('settings/fetchSettings')
+      settings.value = {
+        primaryColor: store.state.settings.primaryColor,
+        secondaryColor: store.state.settings.secondaryColor,
+        title: store.state.settings.title,
+        useDefaultLogo: store.state.settings.useDefaultLogo
+      }
+    })
 
     return {
       settings,
       currentLogo,
+      logoUrl,
       logoInput,
+      isLoading,
       hasChanges,
       handleLogoUpload,
       handleColorChange,
+      revertColors,
+      removeLogo,
       saveSettings
     }
   }
@@ -231,6 +278,10 @@ export default {
   background: #f8f9fa;
   border-radius: 4px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
 }
 
 .logo-preview img {
@@ -320,5 +371,74 @@ export default {
 
 .save-btn:not(:disabled):hover {
   opacity: 0.9;
+}
+
+.title-input {
+  max-width: 400px;
+  margin-bottom: 20px;
+}
+
+.title-input input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.revert-btn {
+  margin-top: 15px;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.revert-btn:hover {
+  background-color: #e9ecef;
+  border-color: #ced4da;
+}
+
+.remove-logo-btn {
+  background-color: #f8f9fa;
+  color: #dc3545;
+  border: 1px solid #dc3545;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.remove-logo-btn:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+.logo-options {
+  margin-bottom: 1rem;
+}
+
+.default-logo-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.default-logo-toggle input[type="checkbox"] {
+  width: auto;
+  margin-right: 0.5rem;
+}
+
+.default-logo-preview {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 </style> 

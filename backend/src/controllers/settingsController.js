@@ -6,7 +6,8 @@ const fs = require('fs').promises;
 // Configure multer for logo uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/logos')
+    const uploadPath = path.join(__dirname, '../../uploads/logos');
+    cb(null, uploadPath)
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
@@ -32,15 +33,12 @@ const upload = multer({
 const settingsController = {
   async getSettings(req, res) {
     try {
-      if (!req.user.role === 'network_admin') {
-        return res.status(403).json({ error: 'Not authorized' });
-      }
-
       let settings = await Settings.findOne();
       if (!settings) {
         settings = await Settings.create({
-          primaryColor: '#7055A4',
-          secondaryColor: '#0579A9'
+          primaryColor: '#388fec',
+          secondaryColor: '#FF006E',
+          title: 'WiA11y'
         });
       }
 
@@ -53,11 +51,11 @@ const settingsController = {
 
   async updateSettings(req, res) {
     try {
-      if (!req.user.role === 'network_admin') {
+      if (req.user.role !== 'network_admin') {
         return res.status(403).json({ error: 'Not authorized' });
       }
 
-      const { primaryColor, secondaryColor } = req.body;
+      const { primaryColor, secondaryColor, title, useDefaultLogo } = req.body;
 
       let settings = await Settings.findOne();
       if (!settings) {
@@ -66,6 +64,8 @@ const settingsController = {
 
       if (primaryColor) settings.primaryColor = primaryColor;
       if (secondaryColor) settings.secondaryColor = secondaryColor;
+      if (title) settings.title = title;
+      if (typeof useDefaultLogo === 'boolean') settings.useDefaultLogo = useDefaultLogo;
 
       await settings.save();
       res.json(settings);
@@ -97,8 +97,8 @@ const settingsController = {
 
         // Delete old logo if it exists
         if (settings.logo) {
-          const oldLogoPath = path.join(__dirname, '../../uploads/logos', path.basename(settings.logo));
           try {
+            const oldLogoPath = path.join(__dirname, '../../', settings.logo);
             await fs.unlink(oldLogoPath);
           } catch (error) {
             console.error('Error deleting old logo:', error);
@@ -114,6 +114,38 @@ const settingsController = {
     } catch (error) {
       console.error('Upload logo error:', error);
       res.status(500).json({ error: 'Failed to upload logo' });
+    }
+  },
+
+  async removeLogo(req, res) {
+    try {
+      if (!req.user.role === 'network_admin') {
+        return res.status(403).json({ error: 'Not authorized' });
+      }
+
+      let settings = await Settings.findOne();
+      if (!settings) {
+        return res.status(404).json({ error: 'Settings not found' });
+      }
+
+      // Delete the logo file if it exists
+      if (settings.logo) {
+        try {
+          const logoPath = path.join(__dirname, '../../', settings.logo);
+          await fs.unlink(logoPath);
+        } catch (error) {
+          console.error('Error deleting logo file:', error);
+        }
+      }
+
+      // Clear the logo path in settings
+      settings.logo = null;
+      await settings.save();
+
+      res.json(settings);
+    } catch (error) {
+      console.error('Remove logo error:', error);
+      res.status(500).json({ error: 'Failed to remove logo' });
     }
   }
 };
