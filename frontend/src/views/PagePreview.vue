@@ -120,38 +120,62 @@ export default {
     }
 
     const highlightViolation = (violation) => {
-      selectedViolation.value = selectedViolation.value?.id === violation.id ? null : violation
-      
-      if (previewFrame.value) {
-        if (selectedViolation.value) {
+      // If clicking the same violation, unselect it and clear highlights
+      if (selectedViolation.value?.id === violation.id) {
+        selectedViolation.value = null
+        // Clear all highlights
+        if (previewFrame.value) {
+          previewFrame.value.contentWindow.postMessage({
+            type: 'highlight',
+            selector: null,
+            clearAll: true
+          }, process.env.VUE_APP_API_URL)
+        }
+      } else {
+        // Selecting a new violation
+        selectedViolation.value = violation
+        
+        if (previewFrame.value) {
+          // First clear any existing highlights
+          previewFrame.value.contentWindow.postMessage({
+            type: 'highlight',
+            selector: null,
+            clearAll: true
+          }, process.env.VUE_APP_API_URL)
+          
+          // Then highlight the new violation nodes
           violation.nodes.forEach(node => {
             node.target.forEach(selector => {
               previewFrame.value.contentWindow.postMessage({
                 type: 'highlight',
-                selector: selector
+                selector: selector,
+                clearAll: false
               }, process.env.VUE_APP_API_URL)
             })
           })
-        } else {
-          // Clear highlights
-          previewFrame.value.contentWindow.postMessage({
-            type: 'highlight',
-            selector: null
-          }, process.env.VUE_APP_API_URL)
         }
       }
-      highlightedNode.value = null;
+      highlightedNode.value = null
     }
 
     const scrollToElement = (selectors) => {
       if (previewFrame.value) {
+        // First clear existing highlights
+        previewFrame.value.contentWindow.postMessage({
+          type: 'highlight',
+          selector: null,
+          clearAll: true
+        }, process.env.VUE_APP_API_URL)
+        
+        // Then highlight the selected elements
         selectors.forEach(selector => {
           previewFrame.value.contentWindow.postMessage({
             type: 'highlight',
-            selector: selector
+            selector: selector,
+            clearAll: false
           }, process.env.VUE_APP_API_URL)
         })
-        highlightedNode.value = selectors;
+        highlightedNode.value = selectors
       }
     }
 

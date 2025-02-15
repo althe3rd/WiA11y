@@ -2,6 +2,7 @@
   <div class="crawl-form">
     
     <form @submit.prevent="submitCrawl" class="crawl-form-wrapper">
+      <div class="crawl-main-row">
       <div class="form-group basic-options">
         <label for="url">Website to Scan</label>
         <input 
@@ -9,11 +10,9 @@
           id="url" 
           v-model="formData.url" 
           required
-          placeholder="example.com/path"
+          placeholder="example.com"
         >
-        <small class="helper-text">
-          Enter a domain with optional path (e.g., library.wisc.edu/locations)
-        </small>
+        
       </div>
 
       <div class="form-group">
@@ -41,15 +40,15 @@
           :class="['submit-button', { 'success': showSuccess }]"
         >
           <span v-if="!isSubmitting && !showSuccess" class="button-content">
-            <i class="fas fa-spider"></i>
+            <font-awesome-icon icon="fa-magnifying-glass-chart" />
             Start Scan
           </span>
           <span v-else-if="showSuccess" class="button-content success">
-            <i class="fas fa-check"></i>
+            <font-awesome-icon icon="fa-check" />
             Scan added to Queue
           </span>
           <span v-else class="button-content">
-            <i class="fas fa-circle-notch fa-spin"></i>
+            <font-awesome-icon icon="fa-circle-notch" class="fa-spin" />
             Starting...
           </span>
         </button>
@@ -62,6 +61,7 @@
           Cancel
         </button>
       </div>
+      </div>
 
       <div class="advanced-toggle">
         <button 
@@ -71,7 +71,7 @@
           :class="{ 'active': showAdvanced }"
           :title="showAdvanced ? 'Hide scan options' : 'Show scan options'"
         >
-          <i class="fas fa-sliders-h"></i>
+          <font-awesome-icon icon="fa-sliders-h" />
           <span class="options-text">{{ showAdvanced ? 'Hide Options' : 'Scan Options' }}</span>
         </button>
       </div>
@@ -368,40 +368,43 @@ export default {
   top: 74px;
 }
 
-.crawl-form-wrapper {
+.crawl-form-wrapper .crawl-main-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 150px;
+  grid-template-columns: 2fr 1fr 1fr;
   gap: 20px;
   align-items: center;
 }
 
-.basic-options {
-  
+.crawl-form-wrapper .crawl-main-row .button-group {
+  align-self: flex-end;
 }
 
+
+
 .advanced-toggle {
-  margin: 1rem 0;
+  margin: 0 0;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .options-toggle-btn {
   display: flex;
   align-items: center;
+  
+  width: auto;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 6px 12px;
   background-color: transparent;
-  border: 1px solid #e0e0e0;
   border-radius: 6px;
-  color: #666;
-  font-size: 0.9rem;
+  color: var(--primary-color);
+  font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 button.options-toggle-btn:hover:not(:disabled) {
   background-color: #f5f5f5;
-  border: 1px solid var(--primary-color);
+
   color: #333;
 }
 
@@ -438,6 +441,53 @@ button.options-toggle-btn:hover:not(:disabled) {
     transform: translateY(0);
   }
 }
+
+.submit-button {
+  align-items: center;
+  appearance: none;
+  background-image: radial-gradient(100% 100% at 100% 0, var(--secondary-color) 0, var(--primary-color) 100%);
+  border: 0;
+  border-radius: 6px;
+  box-shadow: rgba(45, 35, 66, .4) 0 2px 4px,rgba(45, 35, 66, .3) 0 7px 13px -3px,rgba(58, 65, 111, .5) 0 -3px 0 inset;
+  box-sizing: border-box;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: "JetBrains Mono",monospace;
+  height: 42px;
+  justify-content: center;
+  line-height: 1;
+  list-style: none;
+  overflow: hidden;
+  padding-left: 16px;
+  padding-right: 16px;
+  position: relative;
+  text-align: left;
+  text-decoration: none;
+  transition: box-shadow .15s,transform .15s;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  white-space: nowrap;
+  will-change: box-shadow,transform;
+  font-size: 18px;
+  transform: translateY(-2px);
+}
+
+.submit-button:focus {
+  box-shadow: rgba(0,0,0,0.3) 0 0 0 1.5px inset, rgba(45, 35, 66, .4) 0 2px 4px, rgba(45, 35, 66, .3) 0 7px 13px -3px, rgba(0,0,0,0.3) 0 -3px 0 inset;
+}
+
+.submit-button:hover {
+  box-shadow: rgba(45, 35, 66, .4) 0 4px 8px, rgba(45, 35, 66, .3) 0 7px 13px -3px, rgba(0,0,0,0.3) 0 -3px 0 inset;
+  transform: translateY(-4px);
+}
+
+.submit-button:active {
+  box-shadow: rgba(0,0,0,0.3) 0 3px 7px inset;
+  transform: translateY(-3px);
+}
+
 
 .submit-button {
   position: relative;
@@ -505,13 +555,11 @@ button.options-toggle-btn:hover:not(:disabled) {
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 4px;
 }
 
 form {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+ 
 }
 
 label {

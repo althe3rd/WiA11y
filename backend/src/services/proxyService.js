@@ -56,22 +56,31 @@ class ProxyService {
         </style>
         <script>
           window.addEventListener('message', function(event) {
-            if (event.origin === 'http://localhost:8080') {
+            const allowedOrigins = ['${process.env.FRONTEND_URL}', 'http://localhost:8080'];
+            if (allowedOrigins.includes(event.origin)) {
               if (event.data.type === 'highlight') {
-                const selector = event.data.selector;
-                const impact = event.data.impact;
-                document.querySelectorAll('.a11y-highlight').forEach(el => {
-                  el.classList.remove('a11y-highlight');
-                  el.removeAttribute('data-impact');
-                });
-                if (selector) {
-                  const element = document.querySelector(selector);
+                // Clear existing highlights if clearAll is true or selector is null
+                if (event.data.clearAll || !event.data.selector) {
+                  document.querySelectorAll('.a11y-highlight').forEach(el => {
+                    el.classList.remove('a11y-highlight');
+                    el.removeAttribute('data-impact');
+                    el.removeAttribute('data-highlighted');
+                  });
+                }
+                
+                // Add new highlight if selector is provided
+                if (event.data.selector) {
+                  const element = document.querySelector(event.data.selector);
                   if (element) {
-                    element.classList.add('a11y-highlight');
-                    if (impact) {
-                      element.setAttribute('data-impact', impact);
+                    // Only highlight if not already highlighted
+                    if (!element.hasAttribute('data-highlighted')) {
+                      element.classList.add('a11y-highlight');
+                      if (event.data.impact) {
+                        element.setAttribute('data-impact', event.data.impact);
+                      }
+                      element.setAttribute('data-highlighted', 'true');
+                      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   }
                 }
               }
