@@ -50,6 +50,14 @@
           <div v-if="!item.isAccessible" class="private-notice">
             Limited visibility - Not in your team
           </div>
+          <button 
+            v-if="item.status === 'processing' || item.status === 'queued'"
+            @click="cancelScan(item._id)"
+            class="cancel-button"
+            title="Cancel scan"
+          >
+            Cancel Scan
+          </button>
         </div>
       </div>
     </div>
@@ -85,6 +93,20 @@ export default {
       }
     }
 
+    const cancelScan = async (crawlId) => {
+      try {
+        if (!confirm('Are you sure you want to cancel this scan?')) {
+          return;
+        }
+        await api.post(`/api/crawls/${crawlId}/cancel`);
+        // Refresh the queue immediately after cancellation
+        await fetchQueue();
+      } catch (error) {
+        console.error('Failed to cancel scan:', error);
+        alert('Failed to cancel scan. Please try again.');
+      }
+    }
+
     const formatCrawlRate = (rate) => {
       if (rate <= 10) return 'Slow'
       if (rate <= 30) return 'Medium'
@@ -104,7 +126,8 @@ export default {
       queueItems,
       activeScans,
       queuedScans,
-      formatCrawlRate
+      formatCrawlRate,
+      cancelScan
     }
   }
 }
@@ -244,5 +267,21 @@ export default {
 .no-items p {
   margin: 0;
   font-size: 1.1em;
+}
+
+.cancel-button {
+  margin-top: 15px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background-color 0.2s ease;
+}
+
+.cancel-button:hover {
+  background-color: #c82333;
 }
 </style> 

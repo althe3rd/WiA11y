@@ -97,6 +97,10 @@ export default {
   margin: 0;
 }
 
+.dashboard-header-text h2 {
+  font-weight: 300;
+}
+
 .dashboard-header {
   display: flex;
   justify-content: space-between;

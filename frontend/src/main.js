@@ -15,7 +15,9 @@ import {
   faSlidersH,
   faSun,
   faMoon,
-  faTrash
+  faTrash,
+  faCalendar,
+  faChartLine
 } from '@fortawesome/free-solid-svg-icons'
 
 /* Add icons to the library */
@@ -27,7 +29,9 @@ library.add(
   faSlidersH,
   faSun,
   faMoon,
-  faTrash
+  faTrash,
+  faCalendar,
+  faChartLine
 )
 
 // Create the Vue application

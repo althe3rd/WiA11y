@@ -33,6 +33,7 @@
               <div class="crawl-header">
                 <div class="crawl-title">
                   <div class="crawl-timestamp">
+                    <font-awesome-icon icon="fa-calendar" class="timestamp-icon" />
                     {{ formatDate(crawl.createdAt) }}
                   </div>
                   <span :class="['status', crawl.status]">{{ formatStatus(crawl) }}</span>
@@ -47,7 +48,10 @@
                   >
                     {{ getScoreDifference(calculateScore(crawl), calculateScore(crawls[index + 1])) }}
                   </span>
-                  <button class="view-details-btn" @click="viewDetails(crawl)">View Details</button>
+                  <button class="view-details-btn" @click="viewDetails(crawl)">
+                    <font-awesome-icon icon="fa-chart-line" class="details-icon" />
+                    View Details
+                  </button>
                   <div v-if="crawl.status === 'queued'" class="queue-position">
                     Queue Position: {{ crawl.queuePosition }}
                   </div>
@@ -749,9 +753,16 @@ export default {
 }
 
 .crawl-timestamp {
-  color: #666;
+  color: var(--text-muted);
   font-size: 0.9em;
-  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timestamp-icon {
+  color: var(--text-muted);
+  font-size: 0.9em;
 }
 
 .crawl-item {
@@ -906,11 +917,13 @@ export default {
   font-size: 0.9em;
   padding: 5px 10px;
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.view-details-btn:hover {
-  background: var(--primary-color);
-  color: white;
+.details-icon {
+  font-size: 0.9em;
 }
 
 .queue-position {
