@@ -31,11 +31,11 @@
             <AccessibilityTrendGraph :crawls="crawls" />
             <div v-for="(crawl, index) in crawls" :key="crawl._id" class="crawl-item">
               <div class="crawl-header">
-                <div class="crawl-title" @click="viewDetails(crawl)">
+                <div class="crawl-title">
                   <div class="crawl-timestamp">
                     {{ formatDate(crawl.createdAt) }}
                   </div>
-                  <button class="view-details-btn">View Details</button>
+                  <span :class="['status', crawl.status]">{{ formatStatus(crawl) }}</span>
                 </div>
                 <div class="crawl-stats">
                   <div class="score" :class="getScoreClass(calculateScore(crawl))">
@@ -47,7 +47,7 @@
                   >
                     {{ getScoreDifference(calculateScore(crawl), calculateScore(crawls[index + 1])) }}
                   </span>
-                  <span :class="['status', crawl.status]">{{ formatStatus(crawl) }}</span>
+                  <button class="view-details-btn" @click="viewDetails(crawl)">View Details</button>
                   <div v-if="crawl.status === 'queued'" class="queue-position">
                     Queue Position: {{ crawl.queuePosition }}
                   </div>
@@ -68,8 +68,9 @@
                       v-if="['completed', 'cancelled', 'pending', 'failed'].includes(crawl.status)"
                       @click="removeCrawl(crawl._id)"
                       class="remove-button"
+                      title="Remove scan"
                     >
-                      Remove
+                      <font-awesome-icon icon="fa-trash" />
                     </button>
                   </div>
                 </div>
@@ -80,23 +81,53 @@
                 <p>WCAG Specification: {{ getWcagSpec(crawl) }}</p>
                 <p>Pages Scanned: {{ crawl.pagesScanned }}</p>
                 <p>Violations Found: {{ crawl.violationsFound }}</p>
-                <div class="violation-counts">
-                  <span class="violation critical">
+                <div class="violations-bar">
+                  <div 
+                    v-if="crawl.violationsByImpact.critical > 0"
+                    class="violation-segment critical"
+                    :style="{ width: getViolationPercentage(crawl.violationsByImpact.critical, getTotalViolations(crawl.violationsByImpact)) + '%' }"
+                  >
                     {{ crawl.violationsByImpact.critical }}
-                    <small>Critical</small>
-                  </span>
-                  <span class="violation serious">
+                  </div>
+                  <div 
+                    v-if="crawl.violationsByImpact.serious > 0"
+                    class="violation-segment serious"
+                    :style="{ width: getViolationPercentage(crawl.violationsByImpact.serious, getTotalViolations(crawl.violationsByImpact)) + '%' }"
+                  >
                     {{ crawl.violationsByImpact.serious }}
-                    <small>Serious</small>
-                  </span>
-                  <span class="violation moderate">
+                  </div>
+                  <div 
+                    v-if="crawl.violationsByImpact.moderate > 0"
+                    class="violation-segment moderate"
+                    :style="{ width: getViolationPercentage(crawl.violationsByImpact.moderate, getTotalViolations(crawl.violationsByImpact)) + '%' }"
+                  >
                     {{ crawl.violationsByImpact.moderate }}
-                    <small>Moderate</small>
-                  </span>
-                  <span class="violation minor">
+                  </div>
+                  <div 
+                    v-if="crawl.violationsByImpact.minor > 0"
+                    class="violation-segment minor"
+                    :style="{ width: getViolationPercentage(crawl.violationsByImpact.minor, getTotalViolations(crawl.violationsByImpact)) + '%' }"
+                  >
                     {{ crawl.violationsByImpact.minor }}
-                    <small>Minor</small>
-                  </span>
+                  </div>
+                </div>
+                <div class="violations-legend">
+                  <div class="legend-item">
+                    <span class="legend-color critical"></span>
+                    <span>Critical</span>
+                  </div>
+                  <div class="legend-item">
+                    <span class="legend-color serious"></span>
+                    <span>Serious</span>
+                  </div>
+                  <div class="legend-item">
+                    <span class="legend-color moderate"></span>
+                    <span>Moderate</span>
+                  </div>
+                  <div class="legend-item">
+                    <span class="legend-color minor"></span>
+                    <span>Minor</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -387,27 +418,32 @@ export default {
         return 100;
       }
       
-      // Calculate score based on violations
-      const totalPages = crawl.pagesScanned || 1;
-      
       // Weight violations by severity
       const deductions = {
         critical: 15.0,   // Critical issues have major impact
-        serious: 0.6,     // ~0.6 points per serious violation (18 * 0.6 ≈ 11 points)
-        moderate: 0.2,    // ~0.2 points per moderate violation (9 * 0.2 ≈ 2 points)
+        serious: 0.6,     // ~0.6 points per serious violation
+        moderate: 0.2,    // ~0.2 points per moderate violation
         minor: 0.1       // Minor issues have minimal impact
       };
       
-      // Calculate weighted deductions
+      // Calculate weighted deductions based on average violations per page
       if (crawl.violationsByImpact) {
         const { critical, serious, moderate, minor } = crawl.violationsByImpact;
+        const pagesScanned = crawl.pagesScanned || 1; // Prevent division by zero
+        
+        // Calculate average violations per page for each severity
+        const avgCritical = critical / pagesScanned;
+        const avgSerious = serious / pagesScanned;
+        const avgModerate = moderate / pagesScanned;
+        const avgMinor = minor / pagesScanned;
+        
+        // Calculate total deduction using averages
         const totalDeduction = 
-          (critical * deductions.critical) +
-          (serious * deductions.serious) +
-          (moderate * deductions.moderate) +
-          (minor * deductions.minor);
+          (avgCritical * deductions.critical) +
+          (avgSerious * deductions.serious) +
+          (avgModerate * deductions.moderate) +
+          (avgMinor * deductions.minor);
           
-        // Don't normalize by pages for homepage-like scoring
         let score = Math.max(0, Math.round(100 - totalDeduction));
         return score;
       }
@@ -451,6 +487,19 @@ export default {
         ...inProgressCrawl,
         progress: progress - 100 // Offset for transform
       };
+    },
+    getViolationPercentage(violationCount, totalViolations) {
+      // If there are no violations, return 0
+      if (totalViolations === 0) return 0;
+      // Calculate the percentage based on the total violations
+      // This ensures all segments together will total 100%
+      return (violationCount / totalViolations) * 100;
+    },
+    getTotalViolations(violationsByImpact) {
+      return violationsByImpact.critical + 
+             violationsByImpact.serious + 
+             violationsByImpact.moderate + 
+             violationsByImpact.minor;
     }
   },
   created() {
@@ -528,17 +577,18 @@ export default {
 
 .status {
   padding: 5px 10px;
-  border-radius: 4px;
+  border-radius: 40px;
   font-size: 0.9em;
+  line-height: 1;
 }
 
 .status.completed {
-  background-color: #4CAF50;
+  background-color: #a3d266;
   color: white;
 }
 
 .status.in_progress {
-  background-color: #2196F3;
+  background-color: #67b5f5;
   color: white;
 }
 
@@ -548,7 +598,7 @@ export default {
 }
 
 .status.failed {
-  background-color: #f44336;
+  background-color: #f46e64;
   color: white;
 }
 
@@ -632,8 +682,17 @@ export default {
 }
 
 .remove-button {
-  background-color: #f44336;
-  color: white;
+  background: none;
+  border: none;
+  color: #dc3545;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.remove-button:hover {
+  background-color: rgba(220, 53, 69, 0.1);
 }
 
 .cancel-button:hover,
@@ -692,6 +751,7 @@ export default {
 .crawl-timestamp {
   color: #666;
   font-size: 0.9em;
+  font-weight: 700;
 }
 
 .crawl-item {
@@ -841,12 +901,16 @@ export default {
   font: inherit;
   cursor: pointer;
   outline: inherit;
-  color: #2196F3;
+  border: 1px solid var(--primary-color);
+  color: var(--text-color);
   font-size: 0.9em;
+  padding: 5px 10px;
+  border-radius: 4px;
 }
 
 .view-details-btn:hover {
-  background: var(--background-color);
+  background: var(--primary-color);
+  color: white;
 }
 
 .queue-position {
@@ -874,5 +938,118 @@ export default {
   left: 0;
   transform: translateX(-100%);
   transition: transform 0.5s ease-out;
+}
+
+/* Updated violation styles */
+.violations-bar {
+  height: 24px;
+  display: flex;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 10px 0;
+  background-color: var(--background-color);
+}
+
+.violation-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.violation-segment:hover {
+  filter: brightness(1.1);
+}
+
+.violations-legend {
+  display: flex;
+  gap: 20px;
+  margin-top: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+/* Violation colors */
+.violation-segment.critical,
+.legend-color.critical {
+  background-color: #dc3545;
+}
+
+.violation-segment.serious,
+.legend-color.serious {
+  background-color: #fd7e14;
+}
+
+.violation-segment.moderate,
+.legend-color.moderate {
+  background-color: #ffc107;
+}
+
+.violation-segment.minor,
+.legend-color.minor {
+  background-color: #198754;
+}
+
+/* Clean up scan instance styles */
+.crawl-item {
+  background: var(--card-background);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  transition: all 0.2s ease;
+}
+
+.crawl-item:last-child {
+  margin-bottom: 0;
+}
+
+.crawl-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.crawl-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.crawl-timestamp {
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.crawl-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.crawl-details {
+  color: var(--text-color);
+}
+
+.crawl-details p {
+  margin: 8px 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 </style> 

@@ -36,7 +36,24 @@
     </div>
 
     <div class="violations-section" v-if="violationsByRule.length">
-      <h3>Accessibility Violations</h3>
+      <div class="violations-header">
+        <h3>Accessibility Violations</h3>
+        <div class="view-toggle">
+          <button 
+            @click="viewMode = 'rule'"
+            :class="{ active: viewMode === 'rule' }"
+          >
+            Group by Rule
+          </button>
+          <button 
+            @click="viewMode = 'url'"
+            :class="{ active: viewMode === 'url' }"
+          >
+            Group by URL
+          </button>
+        </div>
+      </div>
+
       <!-- Impact Distribution Bar -->
       <div class="impact-distribution">
         <h4>Violations by Impact Level</h4>
@@ -52,52 +69,102 @@
         </div>
       </div>
 
-      <div v-for="ruleViolation in violationsByRule" :key="ruleViolation.id" class="violation-rule">
-        <div class="rule-header">
-          <h4>
-            {{ ruleViolation.help }}
-            <span :class="['impact-badge', ruleViolation.impact]">{{ ruleViolation.impact }}</span>
-          </h4>
-          <a :href="ruleViolation.helpUrl" target="_blank" class="help-link">Learn More</a>
-        </div>
-        <p class="violation-description">{{ ruleViolation.description }}</p>
-        
-        <div class="violation-instances">
-          <div v-for="(urlGroup, url) in ruleViolation.byUrl" :key="url" class="url-group">
-            <div 
-              class="url-header" 
-              @click="toggleUrlGroup(ruleViolation.id + url)"
-              :class="{ 'expanded': expandedGroups.includes(ruleViolation.id + url) }"
-            >
-              <div class="url-header-content">
-                <span class="expand-icon">{{ expandedGroups.includes(ruleViolation.id + url) ? '▼' : '▶' }}</span>
-                <h5>
-                  {{ url }}
-                  <span class="instance-count">({{ urlGroup.length }} instances)</span>
-                </h5>
+      <!-- Rule-based view -->
+      <div v-if="viewMode === 'rule'">
+        <div v-for="ruleViolation in violationsByRule" :key="ruleViolation.id" class="violation-rule">
+          <div class="rule-header">
+            <h4>
+              {{ ruleViolation.help }}
+              <span :class="['impact-badge', ruleViolation.impact]">{{ ruleViolation.impact }}</span>
+            </h4>
+            <a :href="ruleViolation.helpUrl" target="_blank" class="help-link">Learn More</a>
+          </div>
+          <p class="violation-description">{{ ruleViolation.description }}</p>
+          
+          <div class="violation-instances">
+            <div v-for="(urlGroup, url) in ruleViolation.byUrl" :key="url" class="url-group">
+              <div 
+                class="url-header" 
+                @click="toggleUrlGroup(ruleViolation.id + url)"
+                :class="{ 'expanded': expandedGroups.includes(ruleViolation.id + url) }"
+              >
+                <div class="url-header-content">
+                  <span class="expand-icon">{{ expandedGroups.includes(ruleViolation.id + url) ? '▼' : '▶' }}</span>
+                  <h5>
+                    {{ url }}
+                    <span class="instance-count">({{ urlGroup.length }} instances)</span>
+                  </h5>
+                </div>
+              </div>
+              <div 
+                class="url-instances" 
+                v-show="expandedGroups.includes(ruleViolation.id + url)"
+              >
+                <div v-for="(instance, index) in urlGroup" :key="index" class="violation-instance">
+                  <router-link 
+                    :to="{
+                      name: 'PagePreview',
+                      params: {
+                        scanId: crawl._id,
+                        url: encodeURIComponent(url)
+                      },
+                      query: {
+                        violationId: `${ruleViolation.id}-${ruleViolation.help}`
+                      }
+                    }"
+                    class="preview-link"
+                  >
+                    <CodeBlock>{{ formatHtml(instance.html) }}</CodeBlock>
+                    <p class="failure-summary">{{ instance.failureSummary }}</p>
+                  </router-link>
+                </div>
               </div>
             </div>
-            <div 
-              class="url-instances" 
-              v-show="expandedGroups.includes(ruleViolation.id + url)"
-            >
-              <div v-for="(instance, index) in urlGroup" :key="index" class="violation-instance">
-                <router-link 
-                  :to="{
-                    name: 'PagePreview',
-                    params: {
-                      scanId: crawl._id,
-                      url: encodeURIComponent(url)
-                    },
-                    query: {
-                      violationId: `${ruleViolation.id}-${ruleViolation.help}`
-                    }
-                  }"
-                  class="preview-link"
-                >
-                  <CodeBlock>{{ formatHtml(instance.html) }}</CodeBlock>
-                  <p class="failure-summary">{{ instance.failureSummary }}</p>
-                </router-link>
+          </div>
+        </div>
+      </div>
+
+      <!-- URL-based view -->
+      <div v-if="viewMode === 'url'">
+        <div v-for="urlGroup in violationsByUrl" :key="urlGroup.url" class="violation-url">
+          <div class="url-header" @click="toggleUrlGroup(urlGroup.url)">
+            <div class="url-header-content">
+              <span class="expand-icon">{{ expandedGroups.includes(urlGroup.url) ? '▼' : '▶' }}</span>
+              <h4>
+                {{ urlGroup.url }}
+                <span class="violation-count">({{ urlGroup.violations.length }} violations)</span>
+              </h4>
+            </div>
+          </div>
+          <div class="url-violations" v-show="expandedGroups.includes(urlGroup.url)">
+            <div v-for="violation in urlGroup.violations" :key="violation.id" class="violation-item">
+              <div class="violation-header">
+                <h5>
+                  {{ violation.help }}
+                  <span :class="['impact-badge', violation.impact]">{{ violation.impact }}</span>
+                </h5>
+                <a :href="violation.helpUrl" target="_blank" class="help-link">Learn More</a>
+              </div>
+              <p class="violation-description">{{ violation.description }}</p>
+              <div class="violation-instances">
+                <div v-for="(instance, index) in violation.nodes" :key="index" class="violation-instance">
+                  <router-link 
+                    :to="{
+                      name: 'PagePreview',
+                      params: {
+                        scanId: crawl._id,
+                        url: encodeURIComponent(urlGroup.url)
+                      },
+                      query: {
+                        violationId: `${violation.id}-${violation.help}`
+                      }
+                    }"
+                    class="preview-link"
+                  >
+                    <CodeBlock>{{ formatHtml(instance.html) }}</CodeBlock>
+                    <p class="failure-summary">{{ instance.failureSummary }}</p>
+                  </router-link>
+                </div>
               </div>
             </div>
           </div>
@@ -125,6 +192,7 @@ export default {
   },
   setup(props) {
     const expandedGroups = ref([])
+    const viewMode = ref('rule')
     
     const toggleUrlGroup = (groupId) => {
       const index = expandedGroups.value.indexOf(groupId)
@@ -182,6 +250,54 @@ export default {
         });
     })
 
+    const violationsByUrl = computed(() => {
+      if (!props.crawl.violations) return [];
+
+      // Group violations by URL
+      const groupedByUrl = props.crawl.violations.reduce((acc, violation) => {
+        if (!acc[violation.url]) {
+          acc[violation.url] = {
+            url: violation.url,
+            violations: []
+          };
+        }
+        
+        // Check if we already have this violation type for this URL
+        const existingViolation = acc[violation.url].violations.find(v => 
+          v.id === violation.id && 
+          v.help === violation.help
+        );
+        
+        if (existingViolation) {
+          // Add nodes to existing violation
+          existingViolation.nodes.push(...violation.nodes);
+        } else {
+          // Add new violation
+          acc[violation.url].violations.push({
+            id: violation.id,
+            help: violation.help,
+            description: violation.description,
+            helpUrl: violation.helpUrl,
+            impact: violation.impact,
+            nodes: [...violation.nodes]
+          });
+        }
+        
+        return acc;
+      }, {});
+
+      // Sort violations by impact severity within each URL
+      Object.values(groupedByUrl).forEach(urlGroup => {
+        urlGroup.violations.sort((a, b) => {
+          const impactOrder = { critical: 0, serious: 1, moderate: 2, minor: 3 };
+          return impactOrder[a.impact] - impactOrder[b.impact];
+        });
+      });
+
+      // Convert to array and sort URLs alphabetically
+      return Object.values(groupedByUrl).sort((a, b) => a.url.localeCompare(b.url));
+    });
+
     const getDepthLabel = (depth) => {
       const labels = {
         1: 'Homepage Only',
@@ -217,8 +333,9 @@ export default {
     }
 
     return {
-      getViolationsPerPage,
+      viewMode,
       violationsByRule,
+      violationsByUrl,
       getDepthLabel,
       formatDate,
       getScoreClass,
@@ -280,6 +397,38 @@ export default {
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.violations-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 10px;
+}
+
+.view-toggle button {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  background: var(--card-background);
+  color: var(--text-color);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-toggle button.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.view-toggle button:hover:not(.active) {
+  background: var(--background-color);
 }
 
 .impact-distribution {
@@ -513,5 +662,39 @@ export default {
 .preview-link {
   text-decoration: none;
   color: inherit;
+}
+
+.preview-link:hover, .preview-link:focus {
+  border-left: 3px solid var(--primary-color);
+}
+
+.violation-url {
+  margin-bottom: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.url-violations {
+  padding: 20px;
+  background: var(--background-color);
+}
+
+.violation-item {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--card-background);
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.violation-item:last-child {
+  margin-bottom: 0;
+}
+
+.violation-count {
+  font-size: 0.9em;
+  color: var(--text-muted);
+  margin-left: 8px;
 }
 </style> 
