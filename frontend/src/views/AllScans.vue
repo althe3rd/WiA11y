@@ -32,7 +32,7 @@ export default {
 
 .page-header h1 {
   font-size: 2rem;
-  color: #2c3e50;
+  color: var(--text-color);
   margin: 0;
 }
 </style> 

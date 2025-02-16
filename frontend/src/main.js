@@ -12,7 +12,9 @@ import {
   faSpider,
   faCheck, 
   faCircleNotch,
-  faSlidersH 
+  faSlidersH,
+  faSun,
+  faMoon
 } from '@fortawesome/free-solid-svg-icons'
 
 /* Add icons to the library */
@@ -21,7 +23,9 @@ library.add(
   faSpider,
   faCheck,
   faCircleNotch,
-  faSlidersH
+  faSlidersH,
+  faSun,
+  faMoon
 )
 
 // Create the Vue application

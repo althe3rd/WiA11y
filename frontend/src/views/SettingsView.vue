@@ -247,7 +247,7 @@ export default {
 }
 
 .settings-container {
-  background: white;
+  background: var(--card-background);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   padding: 30px;
@@ -269,13 +269,13 @@ export default {
 
 .setting-group h3 {
   margin-bottom: 15px;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .logo-preview {
   margin-bottom: 15px;
   padding: 20px;
-  background: #f8f9fa;
+  background: var(--background-color);
   border-radius: 4px;
   text-align: center;
   display: flex;
@@ -322,7 +322,7 @@ export default {
 
 .color-picker label {
   font-weight: 500;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .color-input-group {
@@ -335,7 +335,7 @@ export default {
   width: 50px;
   height: 40px;
   padding: 0;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   cursor: pointer;
 }
@@ -343,7 +343,7 @@ export default {
 .color-input-group input[type="text"] {
   flex: 1;
   padding: 8px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-family: monospace;
 }
@@ -381,15 +381,15 @@ export default {
 .title-input input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 16px;
 }
 
 .revert-btn {
   margin-top: 15px;
-  background-color: #f8f9fa;
-  border: 1px solid #ddd;
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
   padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
@@ -402,7 +402,7 @@ export default {
 }
 
 .remove-logo-btn {
-  background-color: #f8f9fa;
+  background-color: var(--background-color);
   color: #dc3545;
   border: 1px solid #dc3545;
   padding: 8px 16px;
@@ -435,7 +435,7 @@ export default {
 
 .default-logo-preview {
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--border-color);
   border-radius: 4px;
   display: flex;
   justify-content: center;

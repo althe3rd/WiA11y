@@ -206,7 +206,7 @@ export default {
 .loading, .error, .no-teams {
   text-align: center;
   padding: 20px;
-  background: white;
+  background: var(--card-background);
   border-radius: 8px;
   margin: 20px 0;
 }
@@ -228,7 +228,7 @@ export default {
 }
 
 .team-card {
-  background: white;
+  background: var(--card-background);
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -267,7 +267,7 @@ export default {
 .admins-list h4, .members-list h4 {
   margin-top: 0;
   margin-bottom: 10px;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .admins-list ul, .members-list ul {

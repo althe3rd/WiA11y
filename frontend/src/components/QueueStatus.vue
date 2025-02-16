@@ -100,7 +100,7 @@ a:hover, a:focus {
 }
 
 .status-text-active {
-  color: rgba(0, 0, 0, 0.8);
+  color: var(--text-color);
 }
 
 .queue-count {

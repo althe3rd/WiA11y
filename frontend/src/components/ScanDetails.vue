@@ -258,7 +258,7 @@ export default {
 }
 
 .stat-card {
-  background: white;
+  background: var(--card-background);
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -276,7 +276,7 @@ export default {
 }
 
 .violations-section {
-  background: white;
+  background: var(--card-background);
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -285,7 +285,7 @@ export default {
 .impact-distribution {
   margin: 20px 0 30px 0;
   padding: 20px;
-  background: #f8f9fa;
+  background: var(--background-color);
   border-radius: 8px;
 }
 
@@ -318,7 +318,7 @@ export default {
 .impact-segment.minor { background-color: #7cb342; }
 
 .violation-card {
-  background: #f8f9fa;
+  background: var(--background-color);
   padding: 20px;
   border-radius: 6px;
   margin-bottom: 20px;
@@ -420,7 +420,7 @@ export default {
 .violation-rule {
   margin-bottom: 2rem;
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--background-color);
   border-radius: 8px;
 }
 
@@ -457,7 +457,7 @@ export default {
 .url-group {
   margin: 1rem 0;
   padding: 1rem;
-  background: white;
+  background: var(--card-background);
   border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }

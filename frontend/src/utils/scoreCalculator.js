@@ -17,14 +17,23 @@ export const calculateScore = (crawl) => {
     minor: 0.1       // Minor issues have minimal impact
   };
   
-  // Calculate weighted deductions
+  // Calculate weighted deductions based on average violations per page
   if (crawl.violationsByImpact) {
     const { critical, serious, moderate, minor } = crawl.violationsByImpact;
+    const pagesScanned = crawl.pagesScanned || 1; // Prevent division by zero
+    
+    // Calculate average violations per page for each severity
+    const avgCritical = critical / pagesScanned;
+    const avgSerious = serious / pagesScanned;
+    const avgModerate = moderate / pagesScanned;
+    const avgMinor = minor / pagesScanned;
+    
+    // Calculate total deduction using averages
     const totalDeduction = 
-      (critical * deductions.critical) +
-      (serious * deductions.serious) +
-      (moderate * deductions.moderate) +
-      (minor * deductions.minor);
+      (avgCritical * deductions.critical) +
+      (avgSerious * deductions.serious) +
+      (avgModerate * deductions.moderate) +
+      (avgMinor * deductions.minor);
       
     let score = Math.max(0, Math.round(100 - totalDeduction));
     return score;

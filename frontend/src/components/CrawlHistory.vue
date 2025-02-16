@@ -477,10 +477,10 @@ export default {
 }
 
 .crawl-item {
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 20px;
-  background: white;
+  background: var(--card-background);
 }
 
 .crawl-header {
@@ -568,7 +568,7 @@ export default {
 }
 
 .crawl-details p strong {
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .violation-counts {
@@ -650,9 +650,9 @@ export default {
   justify-content: space-between;
   align-items: center;
   font-size: 1.5em;
-  color: #2c3e50;
+  color: var(--text-color);
   padding: 15px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -664,8 +664,8 @@ export default {
 }
 
 .domain-header.expanded {
-  background: white;
-  border-color: #e6e6e6;
+  background: var(--card-background);
+  border-color: var(--border-color);
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
   border-bottom: none;
@@ -677,16 +677,16 @@ export default {
   border-top-left-radius: 0;
   border-top-right-radius: 0;
   margin-top: 0;
-  border-color: #e6e6e6;
+  border-color: var(--background-color);
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .domain-header:hover {
-  background-color: #fafafa;
+  background-color: var(--background-color);
 }
 
 .domain-header.expanded:hover {
-  background-color: white;
+  background-color: var(--card-background);
 }
 
 .crawl-timestamp {
@@ -696,10 +696,10 @@ export default {
 
 .crawl-item {
   margin-bottom: 20px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 20px;
-  background: white;
+  background: var(--card-background);
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
@@ -768,20 +768,20 @@ export default {
 .wcag-group {
   margin-bottom: 30px;
   padding: 20px;
-  background: #fff;
+  background: var(--card-background);
   border-radius: 8px;
   border-top-left-radius: 0px;
   border-top-right-radius: 0px;
   
-  border: 1px solid #ededed;
+  border: 1px solid var(--border-color);
 }
 
 .wcag-header {
   font-size: 1.2em;
-  color: #2c3e50;
+  color: var(--text-color);
   margin-bottom: 15px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .wcag-group:last-child {

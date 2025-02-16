@@ -121,7 +121,7 @@ export default {
   gap: 20px;
   margin-bottom: 20px;
   padding: 20px;
-  background: white;
+  background: var(--card-background);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
@@ -140,8 +140,8 @@ export default {
 .filter-group select {
   width: 100%;
   padding: 8px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: white;
+  background: var(--card-background);
 }
 </style> 

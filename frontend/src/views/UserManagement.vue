@@ -111,7 +111,7 @@ export default {
 table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
+  background: var(--card-background);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -131,7 +131,7 @@ th {
 select {
   padding: 4px 8px;
   border-radius: 4px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
 }
 
 .view-btn {

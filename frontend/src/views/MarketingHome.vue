@@ -127,7 +127,7 @@ export default {
 
 /* Hero Section */
 .hero {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: linear-gradient(135deg, var(--background-color) 0%, #e9ecef 100%);
   padding: 80px 20px;
   min-height: 80vh;
   display: flex;
@@ -162,7 +162,7 @@ export default {
 
 .tagline {
   font-size: 1.5rem;
-  color: #2c3e50;
+  color: var(--text-color);
   margin-bottom: 20px;
   font-weight: 500;
 }
@@ -190,7 +190,7 @@ export default {
   text-align: center;
   font-size: 2.5rem;
   margin-bottom: 60px;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .features-grid {
@@ -223,7 +223,7 @@ export default {
 .feature-card h3 {
   font-size: 1.5rem;
   margin-bottom: 15px;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .feature-card p {
@@ -234,7 +234,7 @@ export default {
 /* Benefits Section */
 .benefits {
   padding: 100px 20px;
-  background-color: #f8f9fa;
+  background-color: var(--background-color);
 }
 
 .benefits-content {
@@ -246,7 +246,7 @@ export default {
   text-align: center;
   font-size: 2.5rem;
   margin-bottom: 60px;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .benefits-list {
@@ -264,7 +264,7 @@ export default {
   font-size: 2rem;
   color: var(--primary-color);
   padding: 15px;
-  background: white;
+  background: var(--card-background);
   border-radius: 12px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -272,7 +272,7 @@ export default {
 .benefit-text h3 {
   font-size: 1.5rem;
   margin-bottom: 10px;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .benefit-text p {
@@ -332,8 +332,8 @@ export default {
 
 .cta-button.secondary {
   background-color: transparent;
-  border: 2px solid white;
-  color: white;
+  border: 2px solid rgb(29, 153, 242);
+  color: rgb(64, 64, 64);
 }
 
 .cta-button.secondary:hover {
@@ -343,7 +343,7 @@ export default {
 
 /* Footer */
 .marketing-footer {
-  background-color: #2c3e50;
+  background-color: var(--text-color);
   color: white;
   padding: 40px 20px;
 }

@@ -247,7 +247,7 @@ export default {
 }
 
 .violations-sidebar {
-  background: white;
+  background: var(--card-background);
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -287,7 +287,7 @@ export default {
   padding: 10px;
   border-radius: 4px;
   margin-bottom: 10px;
-  background: #f8f9fa;
+  background: var(--background-color);
   border: 1px solid transparent;
   transition: all 0.2s ease;
 }
@@ -330,7 +330,7 @@ export default {
 }
 
 .preview-frame {
-  background: white;
+  background: var(--card-background);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   overflow: hidden;

@@ -130,7 +130,7 @@ export default {
 }
 
 .stat {
-  background: white;
+  background: var(--card-background);
   padding: 10px 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -147,7 +147,7 @@ export default {
 }
 
 .queue-item {
-  background: white;
+  background: var(--card-background);
   border-radius: 8px;
   padding: 20px;
   margin-bottom: 20px;
@@ -233,7 +233,7 @@ export default {
 }
 
 .no-items {
-  background: white;
+  background: var(--card-background);
   padding: 40px;
   text-align: center;
   border-radius: 8px;

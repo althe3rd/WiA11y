@@ -362,10 +362,11 @@ export default {
 <style scoped>
 .crawl-form {
   padding: 20px;
-  background: white;
+  background: var(--card-background);
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   position: sticky;
   top: 74px;
+  z-index:10;
 }
 
 .crawl-form-wrapper .crawl-main-row {
@@ -571,7 +572,7 @@ label {
 input, select {
   width: 100%;
   padding: 8px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
 }
 

@@ -118,7 +118,7 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background: var(--card-background);
   padding: 30px;
   border-radius: 8px;
   width: 90%;
@@ -140,7 +140,7 @@ label {
 input, textarea {
   width: 100%;
   padding: 8px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
 }
 

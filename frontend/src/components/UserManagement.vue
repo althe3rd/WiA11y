@@ -298,7 +298,7 @@ export default {
 <style scoped>
 .user-management {
   padding: 20px;
-  background: white;
+  background: var(--card-background);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
@@ -313,7 +313,7 @@ export default {
 
 .title {
   font-size: 24px;
-  color: #2c3e50;
+  color: var(--text-color);
   margin: 0;
   white-space: nowrap;
 }
@@ -351,7 +351,7 @@ export default {
 .header-row {
   background: #f5f7fa;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 
 .user-name {
@@ -435,7 +435,7 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background: var(--card-background);
   padding: 30px;
   border-radius: 8px;
   width: 100%;
@@ -455,7 +455,7 @@ label {
 input, select {
   width: 100%;
   padding: 8px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
 }
 

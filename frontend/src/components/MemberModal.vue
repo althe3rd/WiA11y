@@ -192,7 +192,7 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background: var(--card-background);
   padding: 30px;
   border-radius: 8px;
   width: 100%;
@@ -208,13 +208,13 @@ export default {
 .search-input {
   width: 100%;
   padding: 8px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   margin-bottom: 10px;
 }
 
 .search-results {
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   max-height: 200px;
   overflow-y: auto;
@@ -306,6 +306,6 @@ button:disabled {
 
 h4 {
   margin-bottom: 10px;
-  color: #2c3e50;
+  color: var(--text-color);
 }
 </style> 

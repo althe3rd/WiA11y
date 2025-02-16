@@ -25,6 +25,7 @@
       </div>
       <div class="nav-right">
         <QueueStatus />
+        <DarkModeToggle />
         <div class="user-info">
           <span class="user-name">{{ user?.name }}</span>
           <div class="role-info">
@@ -45,6 +46,7 @@ import Logo from './components/Logo.vue';
 import CrawlForm from './components/CrawlForm.vue';
 import QueueStatus from './components/QueueStatus.vue';
 import UserManagement from '@/components/UserManagement.vue'
+import DarkModeToggle from './components/DarkModeToggle.vue'
 import { computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
@@ -55,7 +57,8 @@ export default {
     Logo,
     CrawlForm,
     QueueStatus,
-    UserManagement
+    UserManagement,
+    DarkModeToggle
   },
   setup() {
     const store = useStore();
@@ -142,10 +145,17 @@ export default {
   --primary-color: #388fec;
   --primary-hover: #7029d8;
   --secondary-color: #FF006E;
-  --text-color: #2c3e50;
+  --text-color: var(--text-color);
+  --text-muted: #666666;
   --background-color: #f5f7fa;
   --card-background: #ffffff;
+  --nav-background: #ffffff;
   --border-color: #e1e4e8;
+  --input-background: #ffffff;
+  --input-border: #ced4da;
+  --dropdown-background: #ffffff;
+  --dropdown-hover: var(--background-color);
+  --chart-grid: #e1e4e8;
 }
 
 * {
@@ -154,7 +164,6 @@ export default {
   box-sizing: border-box;
 }
 
-
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -162,6 +171,7 @@ body {
   background-color: var(--background-color);
   color: var(--text-color);
   line-height: 1.6;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #app {
@@ -169,7 +179,7 @@ body {
 }
 
 .main-nav {
-  background-color: var(--card-background);
+  background-color: var(--nav-background);
   padding: 1rem 2rem;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   display: flex;
@@ -178,6 +188,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 1000;
+  transition: background-color 0.3s ease;
 }
 
 .nav-left {
@@ -196,16 +207,16 @@ body {
   font-weight: 500;
   padding: 0.5rem 1rem;
   border-radius: 6px;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .nav-link:hover {
-  background-color: var(--background-color);
+  background-color: var(--hover-background);
 }
 
 .router-link-active {
   color: var(--primary-color);
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--hover-background);
 }
 
 .button-primary {
@@ -216,7 +227,7 @@ body {
   border-radius: 6px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .button-primary:hover {
@@ -230,6 +241,7 @@ body {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
+  transition: background-color 0.3s ease;
 }
 
 /* Global styles for headings */
@@ -254,16 +266,18 @@ h1 {
 input, select, textarea {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--input-border);
   border-radius: 6px;
   font-size: 1rem;
-  transition: border-color 0.2s;
+  background-color: var(--input-background);
+  color: var(--text-color);
+  transition: all 0.2s ease;
 }
 
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(131, 56, 236, 0.1);
+  box-shadow: 0 0 0 3px rgba(56, 143, 236, 0.1);
 }
 
 label {
@@ -273,66 +287,39 @@ label {
   color: var(--text-color);
 }
 
-/* Global styles for buttons */
-.button-secondary {
-  background-color: transparent;
-  color: var(--primary-color);
-  border: 1px solid var(--primary-color);
-  padding: 0.5rem 1.5rem;
-  border-radius: 6px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.button-secondary:hover {
-  background-color: rgba(131, 56, 236, 0.1);
-}
-
+/* User info styles */
 .user-info {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  border: 1px solid #e6e6e6;
+  border: 1px solid var(--border-color);
   border-radius: 40px;
   padding: 0.15rem 0.15rem;
   padding-left: 1rem;
+  background-color: var(--card-background);
+  transition: all 0.2s ease;
 }
 
 .user-name {
   font-weight: 500;
+  color: var(--text-color);
 }
 
 .role-info {
   display: flex;
   align-items: center;
-  gap: 0rem;
-  
-}
-
-.role-info span:first-child {
-  border-top-left-radius: 40px;
-  border-bottom-left-radius: 40px;
-  border-top-right-radius: 0px;
-  border-bottom-right-radius: 0px;
-}
-
-.role-info span:last-child {
-  border-top-right-radius: 40px;
-  border-bottom-right-radius: 40px;
-  border-top-left-radius: 0px;
-  border-bottom-left-radius: 0px;
+  gap: 0;
 }
 
 .role-tag {
   font-size: 0.8rem;
   padding: 0.25rem 0.75rem;
   font-weight: 500;
+  transition: all 0.2s ease;
 }
 
 .role-tag.network-admin {
-  
-  background: linear-gradient(90deg, #ffffff, #e6cff8);
+  background: linear-gradient(90deg, var(--card-background), #e6cff8);
   color: rgb(57, 6, 62);
 }
 
@@ -354,10 +341,10 @@ label {
 .team-tag {
   font-size: 0.8rem;
   padding: 0.25rem 0.75rem;
-
   font-weight: 500;
-  background-color: #e6e6e6;
-  color: #666;
+  background-color: var(--hover-background);
+  color: var(--text-muted);
+  transition: all 0.2s ease;
 }
 
 .nav-right {
@@ -366,8 +353,38 @@ label {
   gap: 20px;
 }
 
-/* Add these styles for the queue status positioning */
-.queue-status {
-  margin-right: 20px;
+/* Chart styles */
+.chart-container {
+  background-color: var(--card-background);
+  border-radius: 8px;
+  padding: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.chart-grid line {
+  stroke: var(--chart-grid);
+}
+
+/* Status badges */
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.status-badge.success {
+  background-color: var(--success-background);
+  color: #28a745;
+}
+
+.status-badge.warning {
+  background-color: var(--warning-background);
+  color: #ffc107;
+}
+
+.status-badge.error {
+  background-color: var(--error-background);
+  color: #dc3545;
 }
 </style> 

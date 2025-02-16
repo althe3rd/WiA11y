@@ -143,7 +143,7 @@ export default {
 }
 
 .crawl-item {
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   margin-bottom: 10px;
   padding: 15px;
