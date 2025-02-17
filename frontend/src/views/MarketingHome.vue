@@ -127,7 +127,7 @@ export default {
 
 /* Hero Section */
 .hero {
-  background: linear-gradient(135deg, var(--background-color) 0%, #e9ecef 100%);
+  background: linear-gradient(135deg, #fff 0%, #e9ecef 100%);
   padding: 80px 20px;
   min-height: 80vh;
   display: flex;
@@ -162,7 +162,7 @@ export default {
 
 .tagline {
   font-size: 1.5rem;
-  color: var(--text-color);
+  color: #000;
   margin-bottom: 20px;
   font-weight: 500;
 }
