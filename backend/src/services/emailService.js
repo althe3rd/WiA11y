@@ -17,24 +17,21 @@ class EmailService {
     });
   }
 
-  async sendPasswordResetEmail(email, resetToken) {
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
-    console.log('Generating reset email for URL:', resetUrl);
-    
+  async sendEmail({ to, subject, html }) {
     const mailOptions = {
       from: process.env.SMTP_FROM,
-      to: email,
-      subject: 'Reset Your Password - WiA11y Web Accessibility Crawler',
-      html: getPasswordResetTemplate(resetUrl)
+      to,
+      subject,
+      html
     };
 
     try {
-      console.log('Email configuration:', {
+      console.log('Sending email with configuration:', {
         host: process.env.SMTP_HOST,
         port: process.env.SMTP_PORT,
         secure: process.env.SMTP_SECURE === 'true',
         from: process.env.SMTP_FROM,
-        to: email
+        to
       });
 
       const info = await this.transporter.sendMail(mailOptions);
@@ -53,6 +50,17 @@ class EmailService {
       });
       throw error;
     }
+  }
+
+  async sendPasswordResetEmail(email, resetToken) {
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    console.log('Generating reset email for URL:', resetUrl);
+    
+    return this.sendEmail({
+      to: email,
+      subject: 'Reset Your Password - WiA11y Web Accessibility Crawler',
+      html: getPasswordResetTemplate(resetUrl)
+    });
   }
 
   // Helper method to verify email configuration

@@ -1,3 +1,5 @@
+import { VIOLATION_WEIGHTS } from '../constants/scoreWeights';
+
 export const calculateScore = (crawl) => {
   // If crawl hasn't started or no pages scanned yet, return null
   if (!crawl.status || crawl.status === 'pending' || !crawl.pagesScanned) {
@@ -8,14 +10,6 @@ export const calculateScore = (crawl) => {
   if (crawl.violationsFound === 0 && crawl.status === 'completed') {
     return 100;
   }
-  
-  // Weight violations by severity
-  const deductions = {
-    critical: 15.0,   // Critical issues have major impact
-    serious: 0.6,     // ~0.6 points per serious violation
-    moderate: 0.2,    // ~0.2 points per moderate violation
-    minor: 0.1       // Minor issues have minimal impact
-  };
   
   // Calculate weighted deductions based on average violations per page
   if (crawl.violationsByImpact) {
@@ -30,10 +24,10 @@ export const calculateScore = (crawl) => {
     
     // Calculate total deduction using averages
     const totalDeduction = 
-      (avgCritical * deductions.critical) +
-      (avgSerious * deductions.serious) +
-      (avgModerate * deductions.moderate) +
-      (avgMinor * deductions.minor);
+      (avgCritical * VIOLATION_WEIGHTS.critical) +
+      (avgSerious * VIOLATION_WEIGHTS.serious) +
+      (avgModerate * VIOLATION_WEIGHTS.moderate) +
+      (avgMinor * VIOLATION_WEIGHTS.minor);
       
     let score = Math.max(0, Math.round(100 - totalDeduction));
     return score;

@@ -97,6 +97,93 @@
           </button>
         </div>
 
+        <div class="setting-group">
+          <h3>Email Configuration</h3>
+          <div class="email-settings">
+            <div class="email-config">
+              <div class="config-item">
+                <label>SMTP Host:</label>
+                <span>{{ emailConfig.host || '—' }}</span>
+              </div>
+              <div class="config-item">
+                <label>SMTP Port:</label>
+                <span>{{ emailConfig.port || '—' }}</span>
+              </div>
+              <div class="config-item">
+                <label>From Address:</label>
+                <span>{{ emailConfig.from || '—' }}</span>
+              </div>
+            </div>
+            
+            <div class="test-email">
+              <h4>Test Email Configuration</h4>
+              <div class="form-group">
+                <label for="testEmail">Test Email Address</label>
+                <input 
+                  type="email" 
+                  id="testEmail" 
+                  v-model="testEmailAddress"
+                  placeholder="Enter email address for testing"
+                />
+              </div>
+              <button 
+                @click="sendTestEmail" 
+                class="test-btn"
+                :disabled="isTestingEmail || !testEmailAddress"
+              >
+                {{ isTestingEmail ? 'Sending...' : 'Send Test Email' }}
+              </button>
+              <div v-if="emailTestResult" :class="['test-result', emailTestResult.status]">
+                {{ emailTestResult.message }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-group" v-if="isTeamAdmin || isNetworkAdmin">
+          <h3>Email Notifications</h3>
+          <div class="email-notifications">
+            <div class="notification-settings">
+              <div class="form-group">
+                <label class="toggle-label">
+                  <input 
+                    type="checkbox" 
+                    v-model="emailPreferences.enabled"
+                    @change="saveEmailPreferences"
+                  />
+                  Enable Accessibility Summary Reports
+                </label>
+              </div>
+              
+              <div class="form-group" v-if="emailPreferences.enabled">
+                <label for="frequency">Report Frequency</label>
+                <select 
+                  id="frequency" 
+                  v-model="emailPreferences.frequency"
+                  @change="saveEmailPreferences"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+                <p class="help-text">
+                  {{ getFrequencyDescription }}
+                </p>
+                <button 
+                  class="send-now-button" 
+                  @click="sendReportNow"
+                  :disabled="isSendingReport"
+                >
+                  {{ isSendingReport ? 'Sending...' : 'Send Report Now' }}
+                </button>
+                <p v-if="reportSendResult" :class="['send-result', reportSendResult.type]">
+                  {{ reportSendResult.message }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="setting-actions">
           <button 
             @click="saveSettings" 
@@ -115,6 +202,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import LogoDefault from '../components/Logo-default.vue'
+import api from '../api/axios'
 
 export default {
   name: 'SettingsView',
@@ -130,6 +218,23 @@ export default {
       title: store.state.settings.title,
       useDefaultLogo: store.state.settings.useDefaultLogo
     })
+    
+    const emailConfig = ref({
+      host: null,
+      port: null,
+      from: null
+    })
+    
+    const testEmailAddress = ref('')
+    const isTestingEmail = ref(false)
+    const emailTestResult = ref(null)
+    
+    const emailPreferences = ref({
+      enabled: false,
+      frequency: 'weekly'
+    });
+    const isSendingReport = ref(false);
+    const reportSendResult = ref(null);
     
     // Default colors
     const defaultColors = {
@@ -212,6 +317,108 @@ export default {
       }
     }
 
+    const fetchEmailConfig = async () => {
+      try {
+        console.log('Fetching email configuration...')
+        const { data } = await api.get('/api/settings/email-config')
+        console.log('Email configuration received:', data)
+        emailConfig.value = data
+      } catch (error) {
+        console.error('Failed to fetch email config:', error)
+        console.error('Error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        })
+      }
+    }
+    
+    const sendTestEmail = async () => {
+      try {
+        isTestingEmail.value = true
+        emailTestResult.value = null
+        
+        await api.post('/api/settings/test-email', {
+          email: testEmailAddress.value
+        })
+        
+        emailTestResult.value = {
+          status: 'success',
+          message: 'Test email sent successfully! Please check your inbox.'
+        }
+      } catch (error) {
+        emailTestResult.value = {
+          status: 'error',
+          message: error.response?.data?.error || 'Failed to send test email. Please try again.'
+        }
+      } finally {
+        isTestingEmail.value = false
+      }
+    }
+
+    const getFrequencyDescription = computed(() => {
+      switch(emailPreferences.value.frequency) {
+        case 'daily':
+          return 'You will receive a summary report every day at 8:00 AM.';
+        case 'weekly':
+          return 'You will receive a summary report every Monday at 8:00 AM.';
+        case 'monthly':
+          return 'You will receive a summary report on the 1st of each month at 8:00 AM.';
+        default:
+          return '';
+      }
+    });
+
+    const fetchEmailPreferences = async () => {
+      try {
+        const { data } = await api.get('/api/settings/email-preferences');
+        emailPreferences.value = {
+          enabled: data.enabled,
+          frequency: data.frequency
+        };
+      } catch (error) {
+        console.error('Failed to fetch email preferences:', error);
+      }
+    };
+
+    const saveEmailPreferences = async () => {
+      try {
+        await api.post('/api/settings/email-preferences', emailPreferences.value);
+        alert('Email preferences saved successfully');
+      } catch (error) {
+        console.error('Failed to save email preferences:', error);
+        alert('Failed to save email preferences');
+      }
+    };
+
+    const sendReportNow = async () => {
+      try {
+        isSendingReport.value = true;
+        reportSendResult.value = null;
+        
+        await api.post('/api/settings/send-report-now');
+        
+        reportSendResult.value = {
+          type: 'success',
+          message: 'Report sent successfully!'
+        };
+      } catch (error) {
+        console.error('Failed to send report:', error);
+        reportSendResult.value = {
+          type: 'error',
+          message: error.response?.data?.error || 'Failed to send report'
+        };
+      } finally {
+        isSendingReport.value = false;
+        // Clear success message after 5 seconds
+        if (reportSendResult.value?.type === 'success') {
+          setTimeout(() => {
+            reportSendResult.value = null;
+          }, 5000);
+        }
+      }
+    };
+
     onMounted(async () => {
       await store.dispatch('settings/fetchSettings')
       settings.value = {
@@ -219,6 +426,10 @@ export default {
         secondaryColor: store.state.settings.secondaryColor,
         title: store.state.settings.title,
         useDefaultLogo: store.state.settings.useDefaultLogo
+      }
+      await fetchEmailConfig()
+      if (store.getters.isTeamAdmin || store.getters.isNetworkAdmin) {
+        await fetchEmailPreferences();
       }
     })
 
@@ -233,7 +444,20 @@ export default {
       handleColorChange,
       revertColors,
       removeLogo,
-      saveSettings
+      saveSettings,
+      emailConfig,
+      testEmailAddress,
+      isTestingEmail,
+      emailTestResult,
+      sendTestEmail,
+      emailPreferences,
+      getFrequencyDescription,
+      saveEmailPreferences,
+      isTeamAdmin: computed(() => store.getters.isTeamAdmin),
+      isNetworkAdmin: computed(() => store.getters.isNetworkAdmin),
+      isSendingReport,
+      reportSendResult,
+      sendReportNow
     }
   }
 }
@@ -394,11 +618,12 @@ export default {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
+  color: var(--text-color);
 }
 
 .revert-btn:hover {
-  background-color: #e9ecef;
-  border-color: #ced4da;
+  background-color: var(--background-color-hover);
+  border-color: var(--border-color-hover);
 }
 
 .remove-logo-btn {
@@ -440,5 +665,145 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+.email-settings {
+  background: var(--background-color);
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.email-config {
+  margin-bottom: 30px;
+}
+
+.config-item {
+  display: flex;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: var(--card-background);
+  border-radius: 4px;
+}
+
+.config-item label {
+  font-weight: 500;
+  min-width: 120px;
+  margin-bottom: 0;
+}
+
+.test-email {
+  background: var(--card-background);
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.test-email h4 {
+  margin-bottom: 15px;
+  color: var(--text-color);
+}
+
+.test-btn {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.test-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.test-btn:not(:disabled):hover {
+  opacity: 0.9;
+}
+
+.test-result {
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.test-result.success {
+  background-color: var(--success-background);
+  color: #28a745;
+}
+
+.test-result.error {
+  background-color: var(--error-background);
+  color: #dc3545;
+}
+
+.email-notifications {
+  background: var(--background-color);
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.notification-settings {
+  background: var(--card-background);
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.toggle-label input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.help-text {
+  margin-top: 5px;
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+.send-now-button {
+  margin-top: 15px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.send-now-button:hover:not(:disabled) {
+  background-color: var(--primary-hover);
+}
+
+.send-now-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.send-result {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.send-result.success {
+  background-color: var(--success-background);
+  color: #28a745;
+}
+
+.send-result.error {
+  background-color: var(--error-background);
+  color: #dc3545;
 }
 </style> 

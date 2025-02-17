@@ -92,6 +92,67 @@ const getPasswordResetTemplate = (resetUrl) => `
 </html>
 `;
 
+const getAccessibilitySummaryTemplate = (data) => {
+  const { userName, frequency, domains, period } = data;
+  
+  const domainRows = domains.map(domain => `
+    <tr>
+      <td style="padding: 10px; border-bottom: 1px solid #eee;">${domain.name}</td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee;">${domain.averageScore}%</td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee;">${domain.trend}</td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee;">${domain.lastScan}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #388fec; color: white; padding: 20px; border-radius: 4px; }
+        .content { padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { text-align: left; padding: 10px; background: #f5f5f5; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 0.9em; color: #666; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Accessibility Summary Report</h1>
+          <p>${frequency} Report for ${period}</p>
+        </div>
+        <div class="content">
+          <p>Hello ${userName},</p>
+          <p>Here's your ${frequency.toLowerCase()} accessibility summary for your domains:</p>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Domain</th>
+                <th>Average Score</th>
+                <th>Trend</th>
+                <th>Last Scan</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${domainRows}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <p>This is an automated report from WiA11y. You can adjust your email preferences in your settings.</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
 module.exports = {
-  getPasswordResetTemplate
+  getPasswordResetTemplate,
+  getAccessibilitySummaryTemplate
 }; 
