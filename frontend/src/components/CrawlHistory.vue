@@ -48,8 +48,12 @@
                   <span :class="['status', crawl.status]">{{ formatStatus(crawl) }}</span>
                 </div>
                 <div class="crawl-stats">
-                  <div class="score" :class="getScoreClass(calculateScore(crawl))">
-                    {{ calculateScore(crawl) }}%
+                  <div class="score-container">
+                    <RadialProgress 
+                      :percentage="calculateScore(crawl)" 
+                      size="medium"
+                      :class="getScoreClass(calculateScore(crawl))"
+                    />
                   </div>
                   <span 
                     v-if="index < crawls.length - 1" 
@@ -196,6 +200,7 @@ import AccessibilityTrendGraph from './AccessibilityTrendGraph.vue';
 import LoadingSpinner from './LoadingSpinner.vue';
 import { useRouter } from 'vue-router';
 import CrawlProgress from './CrawlProgress.vue';
+import RadialProgress from './RadialProgress.vue';
 import api from '../api/axios';
 
 export default {
@@ -217,7 +222,8 @@ export default {
   components: {
     AccessibilityTrendGraph,
     LoadingSpinner,
-    CrawlProgress
+    CrawlProgress,
+    RadialProgress
   },
   setup(props) {
     const router = useRouter();
@@ -701,11 +707,14 @@ export default {
   flex-wrap: wrap;
 }
 
-.score {
-  background-color: #4CAF50;
-  color: white;
-  padding: 5px 10px;
-  border-radius: 4px;
+.score-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.score-container :deep(.radial-progress) {
+  margin-right: 10px;
 }
 
 .score-trend {
