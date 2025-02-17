@@ -17,7 +17,8 @@ import {
   faMoon,
   faTrash,
   faCalendar,
-  faChartLine
+  faChartLine,
+  faEdit
 } from '@fortawesome/free-solid-svg-icons'
 
 /* Add icons to the library */
@@ -31,7 +32,8 @@ library.add(
   faMoon,
   faTrash,
   faCalendar,
-  faChartLine
+  faChartLine,
+  faEdit
 )
 
 // Create the Vue application

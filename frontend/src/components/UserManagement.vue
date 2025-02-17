@@ -22,6 +22,7 @@
         <div class="user-info">Name</div>
         <div class="user-email">Email</div>
         <div class="user-role">Role</div>
+        <div class="user-teams">Teams</div>
         <div class="user-actions">Actions</div>
       </div>
 
@@ -35,6 +36,14 @@
           <span :class="['role-badge', getRoleBadgeClass(user.role)]">
             {{ formatRole(user.role) }}
           </span>
+        </div>
+        <div class="user-teams">
+          <div class="team-badges" v-if="user.teams && user.teams.length">
+            <span v-for="team in user.teams" :key="team._id" class="team-badge">
+              {{ team.name }}
+            </span>
+          </div>
+          <span v-else class="no-teams">No teams</span>
         </div>
         <div class="user-actions">
           <button 
@@ -95,26 +104,11 @@
           <div class="form-group">
             <label for="role">Role</label>
             <select id="role" v-model="userForm.role" required>
-              <option value="user">User</option>
+              <option value="team_member">Team Member</option>
               <option value="team_admin">Team Admin</option>
               <option value="admin">Admin</option>
               <option value="network_admin">Network Admin</option>
             </select>
-          </div>
-
-          <div class="form-group">
-            <label>Teams</label>
-            <div class="teams-selection">
-              <div v-for="team in availableTeams" :key="team._id" class="team-checkbox">
-                <input 
-                  type="checkbox" 
-                  :id="'team-' + team._id"
-                  :value="team._id"
-                  v-model="userForm.teams"
-                >
-                <label :for="'team-' + team._id">{{ team.name }}</label>
-              </div>
-            </div>
           </div>
 
           <div class="modal-actions">
@@ -141,15 +135,13 @@ export default {
       users: [],
       showModal: false,
       editingUser: null,
-      availableTeams: [],
       currentUser: JSON.parse(localStorage.getItem('user')),
       searchQuery: '',
       userForm: {
         name: '',
         email: '',
         password: '',
-        role: 'user',
-        teams: []
+        role: 'team_member'
       }
     }
   },
@@ -160,26 +152,17 @@ export default {
         name: '',
         email: '',
         password: '',
-        role: 'user',
-        teams: []
+        role: 'team_member'
       };
       this.showModal = true;
     },
     async fetchUsers() {
       try {
-        const response = await api.get('/api/users/all');  // Use configured instance
+        const response = await api.get('/api/users/all');
         this.users = response.data;
       } catch (error) {
         console.error('Failed to fetch users:', error);
         alert('Failed to fetch users');
-      }
-    },
-    async fetchTeams() {
-      try {
-        const response = await api.get('/api/teams');  // Use configured instance
-        this.availableTeams = response.data;
-      } catch (error) {
-        console.error('Failed to fetch teams:', error);
       }
     },
     formatRole(role) {
@@ -202,8 +185,7 @@ export default {
         name: user.name,
         email: user.email,
         password: '',
-        role: user.role,
-        teams: user.teams?.map(team => team._id) || []
+        role: user.role
       };
       this.showModal = true;
     },
@@ -214,8 +196,7 @@ export default {
         name: '',
         email: '',
         password: '',
-        role: 'user',
-        teams: []
+        role: 'team_member'
       };
     },
     async submitUser() {
@@ -224,16 +205,15 @@ export default {
           // Update existing user
           const updateData = {
             name: this.userForm.name,
-            role: this.userForm.role,
-            teams: this.userForm.teams
+            role: this.userForm.role
           };
           if (this.userForm.password) {
             updateData.password = this.userForm.password;
           }
-          await api.patch(`/api/users/${this.editingUser._id}`, updateData);  // Use configured instance
+          await api.patch(`/api/users/${this.editingUser._id}`, updateData);
         } else {
           // Create new user
-          await api.post('/api/users/create', this.userForm);  // Use configured instance
+          await api.post('/api/users/create', this.userForm);
         }
         
         this.closeModal();
@@ -254,9 +234,7 @@ export default {
       }
       
       try {
-        await api.delete(`/api/users/${user._id}`);  // Use configured instance
-        
-        // Remove user from local state
+        await api.delete(`/api/users/${user._id}`);
         this.users = this.users.filter(u => u._id !== user._id);
       } catch (error) {
         console.error('Failed to delete user:', error);
@@ -270,15 +248,6 @@ export default {
     this.currentUser = store.state.user;
     
     await this.fetchUsers();
-    await this.fetchTeams();
-  },
-  watch: {
-    '$store.state.user': {
-      handler(newUser) {
-        this.currentUser = newUser;
-      },
-      immediate: true
-    }
   },
   computed: {
     filteredUsers() {
@@ -332,16 +301,16 @@ export default {
 }
 
 .users-list {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
 }
 
 .user-row {
   display: grid;
-  grid-template-columns: 2fr 3fr 1.5fr 1.5fr;
+  grid-template-columns: 2fr 2.5fr 1.5fr 2fr 1.5fr;
   padding: 16px;
   align-items: center;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .user-row:last-child {
@@ -349,7 +318,7 @@ export default {
 }
 
 .header-row {
-  background: #f5f7fa;
+  background: var(--background-secondary);
   font-weight: 600;
   color: var(--text-color);
 }
@@ -421,6 +390,27 @@ export default {
   color: #607D8B;
 }
 
+.team-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.team-badge {
+  background: var(--primary-color-light);
+  color: var(--primary-color);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.no-teams {
+  color: var(--text-muted);
+  font-size: 14px;
+  font-style: italic;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -483,29 +473,6 @@ input, select {
   cursor: pointer;
 }
 
-.user-teams {
-  margin-top: 10px;
-}
-
-.team-badge {
-  display: inline-block;
-  background-color: #e3f2fd;
-  color: #1976d2;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.8em;
-  margin: 2px;
-}
-
-.team-checkbox {
-  margin: 5px 0;
-}
-
-.team-checkbox label {
-  margin-left: 8px;
-  display: inline;
-}
-
 .search-bar {
   flex: 1;
   max-width: 400px;
@@ -523,7 +490,7 @@ input, select {
 .search-input {
   width: 100%;
   padding: 8px 12px 8px 36px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 14px;
   transition: border-color 0.2s;
@@ -531,10 +498,10 @@ input, select {
 
 .search-input:focus {
   outline: none;
-  border-color: #2196F3;
+  border-color: var(--primary-color);
 }
 
 .search-input::placeholder {
-  color: #999;
+  color: var(--text-muted);
 }
 </style> 

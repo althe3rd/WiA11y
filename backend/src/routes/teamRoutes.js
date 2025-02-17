@@ -1,53 +1,36 @@
 const express = require('express');
 const router = express.Router();
 const teamController = require('../controllers/teamController');
-const { auth, isTeamAdmin } = require('../middleware/auth');
+const teamRequestController = require('../controllers/teamRequestController');
+const domainMetadataController = require('../controllers/domainMetadataController');
+const { auth, isTeamAdmin, isNetworkAdmin } = require('../middleware/auth');
 const Team = require('../models/team');
 const Crawl = require('../models/crawl');
 
 console.log('Setting up team routes');
 
-router.get('/', auth, async (req, res) => {
-  try {
-    // If network admin or admin, get all teams, otherwise only get teams user is part of
-    const query = ['network_admin', 'admin'].includes(req.user.role)
-      ? {}
-      : {
-          $or: [
-            { teamAdmins: req.user._id },
-            { members: req.user._id }
-          ]
-        };
+// Public routes
+router.get('/available', auth, teamRequestController.getAvailableTeams);
 
-    const teams = await Team.find(query)
-      .populate('members', 'name email role')
-      .populate('teamAdmins', 'name email role')
-      .populate('createdBy', 'name email');
+// Team request routes
+router.get('/request/status', auth, teamRequestController.getRequestStatus);
+router.post('/request', auth, teamRequestController.submitTeamCreation);
+router.post('/:teamId/join-request', auth, teamRequestController.submitJoinRequest);
+router.post('/requests/:requestId/review', auth, teamRequestController.reviewRequest);
+// Add routes for fetching pending requests
+router.get('/requests/pending', auth, isNetworkAdmin, teamRequestController.getPendingRequests);
+router.get('/requests/pending/admin', auth, isTeamAdmin, teamRequestController.getPendingAdminRequests);
 
-    console.log('Teams for user:', {
-      userId: req.user._id,
-      userRole: req.user.role,
-      teams: teams.map(t => ({
-        name: t.name,
-        members: t.members.map(m => ({
-          id: m._id.toString(),
-          name: m.name,
-          email: m.email
-        })),
-        admins: t.teamAdmins.map(a => ({
-          id: a._id.toString(),
-          name: a.name,
-          email: a.email
-        }))
-      }))
-    });
+// Protected routes
+router.use(auth);
 
-    res.json(teams);
-  } catch (error) {
-    console.error('Error fetching teams:', error);
-    res.status(500).json({ error: 'Failed to fetch teams' });
-  }
-});
+// Team management routes
+router.get('/', teamController.getTeams);
+router.post('/', isNetworkAdmin, teamController.createTeam);
+router.get('/:id', teamController.getTeam);
+router.patch('/:id', isTeamAdmin, teamController.updateTeam);
+router.delete('/:id', isNetworkAdmin, teamController.deleteTeam);
+router.patch('/:teamId/members', isTeamAdmin, teamController.updateTeamMembers);
 
 // Get all crawls for a team
 router.get('/:teamId/crawls', auth, async (req, res) => {
@@ -84,10 +67,6 @@ router.get('/:teamId/crawls', auth, async (req, res) => {
   }
 });
 
-router.post('/', auth, teamController.createTeam);
-router.get('/:teamId/members', auth, teamController.getTeamMembers);
-router.patch('/:teamId/members', auth, isTeamAdmin, teamController.updateTeamMembers);
-
 // Get teams managed by the user
 router.get('/managed', auth, async (req, res) => {
   try {
@@ -106,5 +85,10 @@ router.get('/managed', auth, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch teams' });
   }
 });
+
+// Domain metadata routes
+router.get('/:teamId/domains/:domain/metadata', auth, domainMetadataController.getDomainMetadata);
+router.patch('/:teamId/domains/:domain/metadata', auth, domainMetadataController.updateDomainMetadata);
+router.get('/:teamId/domains/metadata', auth, domainMetadataController.getTeamDomainMetadata);
 
 module.exports = router; 

@@ -36,7 +36,7 @@
         <button @click="logout" class="button-primary">Logout</button>
       </div>
     </nav>
-    <CrawlForm v-if="isAuthenticated" />
+    <CrawlForm v-if="isAuthenticated && !hasPendingRequest" />
     <router-view></router-view>
   </div>
 </template> 
@@ -47,9 +47,10 @@ import CrawlForm from './components/CrawlForm.vue';
 import QueueStatus from './components/QueueStatus.vue';
 import UserManagement from '@/components/UserManagement.vue'
 import DarkModeToggle from './components/DarkModeToggle.vue'
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
+import api from './api/axios';
 
 export default {
   name: 'App',
@@ -63,6 +64,7 @@ export default {
   setup() {
     const store = useStore();
     const router = useRouter();
+    const hasPendingRequest = ref(false);
     
     // Fetch teams and settings when app loads
     onMounted(async () => {
@@ -72,6 +74,13 @@ export default {
       // Only fetch teams if authenticated
       if (store.getters.isAuthenticated) {
         await store.dispatch('fetchTeams');
+        // Check for pending request
+        try {
+          const response = await api.get('/api/teams/request/status');
+          hasPendingRequest.value = response.data.hasPendingRequest;
+        } catch (err) {
+          console.error('Failed to check request status:', err);
+        }
       }
     });
     
@@ -128,7 +137,8 @@ export default {
       userTeam,
       getRoleClass,
       formatRole,
-      logout
+      logout,
+      hasPendingRequest
     };
   },
   async created() {
@@ -309,6 +319,7 @@ label {
   display: flex;
   align-items: center;
   gap: 0;
+  
 }
 
 .role-tag {
@@ -316,26 +327,27 @@ label {
   padding: 0.25rem 0.75rem;
   font-weight: 500;
   transition: all 0.2s ease;
+  border-radius: 40px;
 }
 
 .role-tag.network-admin {
-  background: linear-gradient(90deg, var(--card-background), #e6cff8);
+  background: #e6cff8;
   color: rgb(57, 6, 62);
 }
 
 .role-tag.team-admin {
   background-color: #b6d4ed;
-  color: rgb(50, 94, 152);
+  color: #000;
 }
 
 .role-tag.admin {
-  background-color: #ff9800;
-  color: white;
+  background-color: #b6d4ed;
+  color: #000;
 }
 
 .role-tag.team-member {
-  background-color: #4caf50;
-  color: white;
+  background-color: #b6edbd;
+  color: #000;
 }
 
 .team-tag {

@@ -88,7 +88,8 @@
 
 <script>
 import { ref, computed } from 'vue';
-import axios from 'axios';
+import { useStore } from 'vuex';
+import api from '../api/axios';
 
 export default {
   name: 'MemberModal',
@@ -100,6 +101,7 @@ export default {
   },
   emits: ['close', 'save'],
   setup(props, { emit }) {
+    const store = useStore();
     const searchQuery = ref('');
     const searchResults = ref([]);
     const memberUpdates = ref({
@@ -110,8 +112,10 @@ export default {
     });
 
     const isUserInTeam = (userId) => {
-      return props.team.members.some(m => m._id === userId) || 
-             props.team.teamAdmins.some(a => a._id === userId);
+      const members = props.team.members || [];
+      const admins = props.team.teamAdmins || [];
+      return members.some(m => m._id === userId) || 
+             admins.some(a => a._id === userId);
     };
 
     const isCreator = (userId) => {
@@ -125,13 +129,10 @@ export default {
       }
 
       try {
-        const token = localStorage.getItem('token');
-        const response = await axios.get(`http://localhost:3000/api/users/search?q=${searchQuery.value}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        searchResults.value = response.data.filter(user => !isUserInTeam(user._id));
+        const results = await store.dispatch('searchUsers', searchQuery.value);
+        searchResults.value = results.filter(user => 
+          !isUserInTeam(user._id)
+        );
       } catch (error) {
         console.error('Failed to search users:', error);
       }
@@ -139,26 +140,72 @@ export default {
 
     const addMember = (user) => {
       memberUpdates.value.addMembers.push(user._id);
+      
+      if (!props.team.members) {
+        props.team.members = [];
+      }
+      props.team.members.push(user);
+      
       searchResults.value = searchResults.value.filter(u => u._id !== user._id);
+      
+      searchQuery.value = '';
     };
 
     const removeMember = (userId) => {
       memberUpdates.value.removeMembers.push(userId);
+      // Remove from UI
+      const memberIndex = props.team.members.findIndex(m => m._id === userId);
+      if (memberIndex !== -1) {
+        props.team.members.splice(memberIndex, 1);
+      }
     };
 
     const promoteToAdmin = (userId) => {
       memberUpdates.value.addAdmins.push(userId);
       memberUpdates.value.removeMembers.push(userId);
+      
+      // Find the member and move them to admins
+      const memberIndex = props.team.members.findIndex(m => m._id === userId);
+      if (memberIndex !== -1) {
+        const member = props.team.members[memberIndex];
+        props.team.members.splice(memberIndex, 1);
+        if (!props.team.teamAdmins) {
+          props.team.teamAdmins = [];
+        }
+        props.team.teamAdmins.push(member);
+      }
     };
 
     const removeAdmin = (userId) => {
       if (!isCreator(userId)) {
         memberUpdates.value.removeAdmins.push(userId);
+        // Remove from UI
+        const adminIndex = props.team.teamAdmins.findIndex(a => a._id === userId);
+        if (adminIndex !== -1) {
+          props.team.teamAdmins.splice(adminIndex, 1);
+        }
       }
     };
 
-    const saveChanges = () => {
-      emit('save', memberUpdates.value);
+    const saveChanges = async () => {
+      try {
+        // Remove any duplicate IDs from the updates
+        const updates = {
+          addAdmins: [...new Set(memberUpdates.value.addAdmins)],
+          removeAdmins: [...new Set(memberUpdates.value.removeAdmins)],
+          addMembers: [...new Set(memberUpdates.value.addMembers)],
+          removeMembers: [...new Set(memberUpdates.value.removeMembers)]
+        };
+        
+        // Only include arrays that have items
+        const filteredUpdates = Object.fromEntries(
+          Object.entries(updates).filter(([_, arr]) => arr.length > 0)
+        );
+        
+        emit('save', filteredUpdates);
+      } catch (error) {
+        console.error('Error saving member updates:', error);
+      }
     };
 
     return {

@@ -18,21 +18,30 @@ const teamController = {
       const teams = await Team.find(query)
         .populate({
           path: 'teamAdmins',
-          select: 'name email role',
+          select: 'name email role _id',
           model: 'User'
         })
         .populate({
           path: 'members',
-          select: 'name email role',
+          select: 'name email role _id',
           model: 'User'
         })
         .populate({
           path: 'createdBy',
-          select: 'name email',
+          select: 'name email _id',
           model: 'User'
-        });
+        })
+        .lean()
+        .exec();
       
-      res.json(teams);
+      // Ensure members and teamAdmins are always arrays
+      const processedTeams = teams.map(team => ({
+        ...team,
+        members: team.members || [],
+        teamAdmins: team.teamAdmins || []
+      }));
+      
+      res.json(processedTeams);
     } catch (error) {
       console.error('Error fetching teams:', error);
       res.status(500).json({ error: 'Failed to fetch teams' });
@@ -101,39 +110,56 @@ const teamController = {
 
       // Update team members and admins
       if (addMembers?.length) {
-        team.members.push(...addMembers);
+        team.members = [...new Set([...team.members.map(id => id.toString()), ...addMembers])];
+        // Add team to users' teams array
+        await User.updateMany(
+          { _id: { $in: addMembers } },
+          { $addToSet: { teams: teamId } }
+        );
       }
       if (removeMembers?.length) {
         team.members = team.members.filter(m => !removeMembers.includes(m.toString()));
+        // Remove team from users' teams array
+        await User.updateMany(
+          { _id: { $in: removeMembers } },
+          { $pull: { teams: teamId } }
+        );
       }
       if (addAdmins?.length) {
-        team.teamAdmins.push(...addAdmins);
+        team.teamAdmins = [...new Set([...team.teamAdmins.map(id => id.toString()), ...addAdmins])];
+        // Add team to admin users' teams array and update role
+        await User.updateMany(
+          { _id: { $in: addAdmins } },
+          { 
+            $addToSet: { teams: teamId },
+            $set: { role: 'team_admin' }
+          }
+        );
       }
       if (removeAdmins?.length) {
         team.teamAdmins = team.teamAdmins.filter(a => !removeAdmins.includes(a.toString()));
+        // Update removed admins' role if they're not admins of any other teams
+        for (const adminId of removeAdmins) {
+          const adminUser = await User.findById(adminId);
+          const isAdminOfOtherTeams = await Team.exists({
+            _id: { $ne: teamId },
+            teamAdmins: adminId
+          });
+          if (!isAdminOfOtherTeams && adminUser.role === 'team_admin') {
+            await User.findByIdAndUpdate(adminId, { role: 'user' });
+          }
+        }
       }
 
       await team.save();
 
       // Populate the team data
-      await team
-        .populate({
-          path: 'teamAdmins',
-          select: 'name email role',
-          model: 'User'
-        })
-        .populate({
-          path: 'members',
-          select: 'name email role',
-          model: 'User'
-        })
-        .populate({
-          path: 'createdBy',
-          select: 'name email',
-          model: 'User'
-        });
+      const populatedTeam = await Team.findById(teamId)
+        .populate('teamAdmins', 'name email role')
+        .populate('members', 'name email role')
+        .populate('createdBy', 'name email');
 
-      res.json(team);
+      res.json(populatedTeam);
     } catch (error) {
       console.error('Error updating team members:', error);
       res.status(500).json({ error: 'Failed to update team members' });
@@ -184,6 +210,86 @@ const teamController = {
       res.json(updatedTeam);
     } catch (error) {
       res.status(500).json({ error: 'Failed to add member' });
+    }
+  },
+
+  async getTeam(req, res) {
+    try {
+      const team = await Team.findById(req.params.id)
+        .populate('teamAdmins', 'name email role')
+        .populate('members', 'name email role')
+        .populate('createdBy', 'name email');
+
+      if (!team) {
+        return res.status(404).json({ error: 'Team not found' });
+      }
+
+      // Check if user has access to team
+      const hasAccess = ['network_admin', 'admin'].includes(req.user.role) ||
+        team.members.includes(req.user._id) ||
+        team.teamAdmins.includes(req.user._id);
+
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'Not authorized to view this team' });
+      }
+
+      res.json(team);
+    } catch (error) {
+      console.error('Error fetching team:', error);
+      res.status(500).json({ error: 'Failed to fetch team' });
+    }
+  },
+
+  async updateTeam(req, res) {
+    try {
+      const { name, description, domains } = req.body;
+      const team = await Team.findById(req.params.id);
+
+      if (!team) {
+        return res.status(404).json({ error: 'Team not found' });
+      }
+
+      // Update fields
+      if (name) team.name = name;
+      if (description) team.description = description;
+      if (domains) team.domains = domains;
+
+      await team.save();
+
+      // Populate team data
+      await team
+        .populate('teamAdmins', 'name email role')
+        .populate('members', 'name email role')
+        .populate('createdBy', 'name email');
+
+      res.json(team);
+    } catch (error) {
+      console.error('Error updating team:', error);
+      res.status(500).json({ error: 'Failed to update team' });
+    }
+  },
+
+  async deleteTeam(req, res) {
+    try {
+      const team = await Team.findById(req.params.id);
+
+      if (!team) {
+        return res.status(404).json({ error: 'Team not found' });
+      }
+
+      // Remove team from all users' teams array
+      await User.updateMany(
+        { teams: team._id },
+        { $pull: { teams: team._id } }
+      );
+
+      // Delete the team
+      await team.remove();
+
+      res.json({ message: 'Team deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting team:', error);
+      res.status(500).json({ error: 'Failed to delete team' });
     }
   }
 };

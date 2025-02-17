@@ -176,23 +176,23 @@ export default createStore({
         throw error.response.data;
       }
     },
-    async updateTeamMembers({ commit }, { teamId, addAdmins, removeAdmins, addMembers, removeMembers }) {
+    async updateTeamMembers({ commit }, { teamId, ...updates }) {
       try {
-        const token = localStorage.getItem('token');
+        if (!teamId) {
+          throw new Error('Team ID is required');
+        }
+        
         const { data } = await api.patch(`/api/teams/${teamId}/members`, {
-          addAdmins,
-          removeAdmins,
-          addMembers,
-          removeMembers
-        }, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          addAdmins: updates.addAdmins || [],
+          removeAdmins: updates.removeAdmins || [],
+          addMembers: updates.addMembers || [],
+          removeMembers: updates.removeMembers || []
         });
+        
         return data;
       } catch (error) {
         console.error('Failed to update team members:', error);
-        throw error.response?.data || error;
+        throw error.response?.data?.error || error.message || 'Failed to update team members';
       }
     },
     async register({ commit }, userData) {

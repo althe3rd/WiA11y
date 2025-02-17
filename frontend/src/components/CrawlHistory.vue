@@ -8,7 +8,16 @@
           :class="{ 'expanded': expandedDomains.includes(domain) }"
           @click="toggleDomain(domain)"
         >
-          <h3>{{ domain }}</h3>
+          <div class="domain-header-content">
+            <div class="domain-info">
+            <h3>{{ domain }}</h3>
+            <span v-if="domainMetadata[domain]?.isArchived" class="archived-badge">Archived</span>
+          </div>
+          <button class="edit-metadata-btn" @click.stop="editDomainMetadata(domain)" title="Edit domain settings">
+            <font-awesome-icon icon="edit" />
+            <span class="edit-label">Edit</span>
+          </button>
+          </div>
           <div class="domain-summary">
             <span class="latest-score">
               Latest: {{ getLatestScore(domainData) }}%
@@ -80,6 +89,9 @@
                 </div>
               </div>
               <div class="crawl-details">
+                <p class="created-by" v-if="crawl.createdBy">
+                  Created by: {{ crawl.createdBy.name }} - {{ crawl.createdBy.email }}
+                </p>
                 <p>Speed: {{ getCrawlSpeed(crawl.crawlRate) }}</p>
                 <p>Depth Limit: {{ getDepthLabel(crawl.depthLimit) }}</p>
                 <p>WCAG Specification: {{ getWcagSpec(crawl) }}</p>
@@ -137,18 +149,54 @@
             </div>
           </div>
         </div>
+        <div v-if="domainMetadata[domain]?.notes" class="domain-notes">
+          {{ domainMetadata[domain].notes }}
+        </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Domain Metadata Modal -->
+  <div v-if="showMetadataModal" class="modal-overlay" @click.self="showMetadataModal = false">
+    <div class="modal-content">
+      <h3>Edit Domain Settings</h3>
+      <form @submit.prevent="saveDomainMetadata">
+        <div class="form-group">
+          <label for="notes">Notes</label>
+          <textarea 
+            id="notes" 
+            v-model="editingMetadata.notes" 
+            rows="3"
+            placeholder="Add notes about this domain..."
+          ></textarea>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input 
+              type="checkbox" 
+              v-model="editingMetadata.isArchived"
+            >
+            Mark as Archived
+          </label>
+          <p class="help-text">Archived domains will not be included in team statistics</p>
+        </div>
+        <div class="modal-actions">
+          <button type="button" @click="showMetadataModal = false" class="cancel-btn">Cancel</button>
+          <button type="submit" class="save-btn">Save</button>
+        </div>
+      </form>
     </div>
   </div>
 </template>
 
 <script>
 import axios from 'axios';
-import { ref } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import AccessibilityTrendGraph from './AccessibilityTrendGraph.vue';
 import LoadingSpinner from './LoadingSpinner.vue';
 import { useRouter } from 'vue-router';
 import CrawlProgress from './CrawlProgress.vue';
+import api from '../api/axios';
 
 export default {
   name: 'CrawlHistory',
@@ -163,7 +211,7 @@ export default {
     },
     limit: {
       type: Number,
-      default: 10 // Show all when 0, otherwise limit to this number
+      default: 10
     }
   },
   components: {
@@ -171,64 +219,69 @@ export default {
     LoadingSpinner,
     CrawlProgress
   },
-  setup() {
+  setup(props) {
     const router = useRouter();
     const crawls = ref([]);
     const pollInterval = ref(null);
     const expandedDomains = ref([]);
-    
-    const viewDetails = (crawl) => {
-      router.push(`/scans/${crawl._id}`);
+    const domainMetadata = ref({});
+    const showMetadataModal = ref(false);
+    const editingMetadata = ref({
+      domain: '',
+      notes: '',
+      isArchived: false
+    });
+
+    const fetchCrawls = async () => {
+      try {
+        const response = await api.get('/api/crawls');
+        crawls.value = response.data;
+      } catch (error) {
+        console.error('Failed to fetch crawls:', error);
+      }
     };
-    
-    return {
-      crawls,
-      pollInterval,
-      expandedDomains,
-      viewDetails
-    };
-  },
-  computed: {
-    groupedCrawls() {
+
+    // Add computed property for groupedCrawls
+    const groupedCrawls = computed(() => {
       // Filter crawls based on selected team and date range
-      let filtered = this.crawls;
+      let filtered = crawls.value;
       
       // Filter by team if selected
-      if (this.selectedTeam) {
+      if (props.selectedTeam) {
         filtered = filtered.filter(crawl => {
           if (!crawl.team) return false;
           try {
             const teamId = typeof crawl.team === 'object' ? crawl.team._id : crawl.team;
-            return teamId?.toString() === this.selectedTeam?.toString();
+            return teamId?.toString() === props.selectedTeam?.toString();
           } catch (error) {
             console.error('Error comparing team IDs:', error);
             return false;
           }
         });
       }
-      
+
       // Get unique domains
       const uniqueDomains = [...new Set(filtered.map(crawl => crawl.domain))];
       
       // Apply limit if set
-      if (this.limit > 0) {
-        uniqueDomains.splice(this.limit);
+      if (props.limit > 0) {
+        uniqueDomains.splice(props.limit);
       }
       
       // Filter crawls to only include the limited domains
-      if (this.limit > 0) {
+      if (props.limit > 0) {
         filtered = filtered.filter(crawl => uniqueDomains.includes(crawl.domain));
       }
 
       // Filter by date range
-      if (this.selectedDateRange !== 'all') {
+      if (props.selectedDateRange !== 'all') {
         const now = new Date();
         const ranges = {
           week: 7,
           month: 30,
           quarter: 90
         };
-        const days = ranges[this.selectedDateRange];
+        const days = ranges[props.selectedDateRange];
         const cutoff = new Date(now.setDate(now.getDate() - days));
         
         filtered = filtered.filter(crawl => 
@@ -238,7 +291,7 @@ export default {
 
       // First group by domain
       const grouped = filtered.reduce((acc, crawl) => {
-        const key = this.normalizeDomain(crawl.domain);
+        const key = crawl.domain.replace(/^www\./i, '');
         if (!acc[key]) {
           acc[key] = {};
         }
@@ -259,16 +312,120 @@ export default {
       });
       
       // Sort domains by most recent crawl
-      const sortedGrouped = Object.fromEntries(
+      return Object.fromEntries(
         Object.entries(grouped).sort(([,a], [,b]) => {
           const latestA = Math.max(...Object.values(a).flat().map(c => new Date(c.createdAt)));
           const latestB = Math.max(...Object.values(b).flat().map(c => new Date(c.createdAt)));
           return latestB - latestA;
         })
       );
-      
-      return sortedGrouped;
-    }
+    });
+
+    const viewDetails = (crawl) => {
+      router.push(`/scans/${crawl._id}`);
+    };
+    
+    const fetchDomainMetadata = async () => {
+      if (!props.selectedTeam) return;
+      try {
+        const response = await api.get(`/api/teams/${props.selectedTeam}/domains/metadata`);
+        domainMetadata.value = response.data.reduce((acc, meta) => {
+          acc[meta.domain] = meta;
+          return acc;
+        }, {});
+      } catch (error) {
+        console.error('Failed to fetch domain metadata:', error);
+      }
+    };
+
+    const editDomainMetadata = (domain) => {
+      editingMetadata.value = {
+        domain,
+        notes: domainMetadata.value[domain]?.notes || '',
+        isArchived: domainMetadata.value[domain]?.isArchived || false
+      };
+      showMetadataModal.value = true;
+    };
+
+    const saveDomainMetadata = async () => {
+      try {
+        const domain = editingMetadata.value.domain;
+        const domainData = groupedCrawls.value[domain];
+        if (!domainData) {
+          throw new Error(`No crawl data found for domain: ${domain}`);
+        }
+
+        // Flatten all crawls for this domain
+        const domainCrawls = Object.values(domainData).flat();
+        if (!domainCrawls.length) {
+          throw new Error('No crawl data found for domain');
+        }
+
+        // Get team ID from the first crawl
+        const teamId = domainCrawls[0]?.team?._id || domainCrawls[0]?.team;
+        if (!teamId) {
+          throw new Error('No team ID found for domain');
+        }
+
+        console.log('Saving metadata for domain:', {
+          domain,
+          teamId,
+          metadata: {
+            notes: editingMetadata.value.notes,
+            isArchived: editingMetadata.value.isArchived
+          }
+        });
+
+        const response = await api.patch(
+          `/api/teams/${teamId}/domains/${domain}/metadata`,
+          {
+            notes: editingMetadata.value.notes,
+            isArchived: editingMetadata.value.isArchived
+          }
+        );
+
+        // Update the local metadata state
+        domainMetadata.value[domain] = response.data;
+        showMetadataModal.value = false;
+        
+        // Refresh the crawls and metadata
+        await fetchCrawls();
+        await fetchDomainMetadata();
+      } catch (error) {
+        console.error('Error saving domain metadata:', error);
+        const errorMessage = error.response?.data?.error || 'Failed to save domain settings. Please try again.';
+        alert(errorMessage);
+      }
+    };
+
+    // Watch for team changes to reload metadata
+    watch(() => props.selectedTeam, (newTeam) => {
+      if (newTeam) {
+        fetchDomainMetadata();
+      } else {
+        domainMetadata.value = {};
+      }
+    });
+
+    onMounted(() => {
+      if (props.selectedTeam) {
+        fetchDomainMetadata();
+      }
+    });
+
+    return {
+      crawls,
+      pollInterval,
+      expandedDomains,
+      viewDetails,
+      domainMetadata,
+      showMetadataModal,
+      editingMetadata,
+      editDomainMetadata,
+      saveDomainMetadata,
+      groupedCrawls,
+      fetchCrawls
+    };
   },
   methods: {
     normalizeDomain(domain) {
@@ -283,19 +440,6 @@ export default {
         hour: 'numeric',
         minute: 'numeric'
       }).format(date);
-    },
-    async fetchCrawls() {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await axios.get(`${process.env.VUE_APP_API_URL}/api/crawls`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        this.crawls = response.data;
-      } catch (error) {
-        console.error('Failed to fetch crawls:', error);
-      }
     },
     getWcagSpec(crawl) {
       return `WCAG ${crawl.wcagVersion} Level ${crawl.wcagLevel}`;
@@ -504,6 +648,13 @@ export default {
              violationsByImpact.serious + 
              violationsByImpact.moderate + 
              violationsByImpact.minor;
+    },
+    calculateAverageScore(crawls) {
+      const activeCrawls = crawls.filter(crawl => !this.domainMetadata[crawl.domain]?.isArchived);
+      if (activeCrawls.length === 0) return null;
+      
+      const totalScore = activeCrawls.reduce((sum, crawl) => sum + (crawl.accessibilityScore || 0), 0);
+      return Math.round(totalScore / activeCrawls.length);
     }
   },
   created() {
@@ -706,6 +857,13 @@ export default {
 
 .domain-group {
   
+}
+
+.domain-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }
 
 .domain-header {
@@ -1064,5 +1222,127 @@ export default {
   margin: 8px 0;
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+.created-by {
+  color: var(--text-muted);
+  font-size: 0.9em;
+  margin-bottom: 8px;
+}
+
+.domain-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.archived-badge {
+  background-color: var(--text-muted);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+}
+
+.domain-notes {
+  color: var(--text-muted);
+  font-size: 0.9em;
+  margin-bottom: 15px;
+  font-style: italic;
+}
+
+.edit-metadata-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.edit-metadata-btn:hover {
+  color: var(--primary-color);
+  background: var(--hover-background);
+}
+
+.edit-label {
+  font-size: 0.9em;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.help-text {
+  color: var(--text-muted);
+  font-size: 0.85em;
+  margin-top: 4px;
+  margin-left: 24px;
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--card-background);
+  padding: 30px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--input-background);
+  color: var(--text-color);
+}
+
+.cancel-btn, .save-btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+}
+
+.cancel-btn {
+  background: var(--background-color);
+  color: var(--text-color);
+}
+
+.save-btn {
+  background: var(--primary-color);
+  color: white;
 }
 </style> 

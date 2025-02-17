@@ -11,6 +11,7 @@ import ForgotPassword from '../views/ForgotPassword.vue';
 import ResetPassword from '../views/ResetPassword.vue';
 import QueueView from '../views/QueueView.vue';
 import MarketingHome from '../views/MarketingHome.vue';
+import UserOnboarding from '../views/UserOnboarding.vue';
 import store from '../store';
 
 const routes = [
@@ -100,6 +101,12 @@ const routes = [
         next({ name: 'Home' })
       }
     }
+  },
+  {
+    path: '/onboarding',
+    name: 'UserOnboarding',
+    component: UserOnboarding,
+    meta: { requiresAuth: true }
   }
 ];
 
@@ -127,12 +134,26 @@ router.beforeEach(async (to, from, next) => {
       name: 'login', 
       query: { redirect: to.fullPath }
     });
-  } else if (isAuthenticated && to.name === 'home') {
-    console.log('Authenticated user accessing home, redirecting to dashboard');
-    next({ name: 'Dashboard' });
-  } else if (isAuthenticated && publicRoutes.includes(to.name) && to.name !== 'home') {
-    console.log('Authenticated user accessing public route, redirecting to dashboard');
-    next({ name: 'Dashboard' });
+  } else if (isAuthenticated) {
+    // Check if user needs onboarding
+    const user = store.state.user;
+    const needsOnboarding = user && user.teams?.length === 0 && user.role !== 'network_admin';
+    
+    if (needsOnboarding && to.name !== 'UserOnboarding') {
+      console.log('User needs onboarding, redirecting to onboarding');
+      next({ name: 'UserOnboarding' });
+    } else if (!needsOnboarding && to.name === 'UserOnboarding') {
+      console.log('User already onboarded, redirecting to dashboard');
+      next({ name: 'Dashboard' });
+    } else if (to.name === 'home') {
+      console.log('Authenticated user accessing home, redirecting to dashboard');
+      next({ name: 'Dashboard' });
+    } else if (publicRoutes.includes(to.name) && to.name !== 'home') {
+      console.log('Authenticated user accessing public route, redirecting to dashboard');
+      next({ name: 'Dashboard' });
+    } else {
+      next();
+    }
   } else {
     next();
   }

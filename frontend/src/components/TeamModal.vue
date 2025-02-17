@@ -35,14 +35,25 @@
               v-model="domain.notes" 
               placeholder="Notes"
             >
-            <button type="button" @click="removeDomain(index)" class="remove-btn">×</button>
+            <button 
+              type="button" 
+              @click="removeDomain(index)" 
+              class="remove-btn"
+              title="Remove domain"
+            >
+              <font-awesome-icon icon="trash" />
+            </button>
           </div>
-          <button type="button" @click="addDomain" class="add-btn">Add Domain</button>
+          <button type="button" @click="addDomain" class="add-btn">
+            <font-awesome-icon icon="plus" /> Add Domain
+          </button>
         </div>
 
         <div class="modal-actions">
           <button type="button" @click="$emit('close')" class="cancel-btn">Cancel</button>
-          <button type="submit" class="save-btn">Save</button>
+          <button type="submit" class="save-btn">
+            <font-awesome-icon icon="save" /> Save
+          </button>
         </div>
       </form>
     </div>
@@ -51,9 +62,13 @@
 
 <script>
 import { ref, onMounted } from 'vue';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 
 export default {
   name: 'TeamModal',
+  components: {
+    FontAwesomeIcon
+  },
   props: {
     team: {
       type: Object,
@@ -87,9 +102,17 @@ export default {
     onMounted(() => {
       if (props.team) {
         formData.value = {
-          name: props.team.name,
-          description: props.team.description,
-          domains: [...(props.team.domains || [])]
+          name: props.team.name || '',
+          description: props.team.description || '',
+          domains: Array.isArray(props.team.domains) 
+            ? [...props.team.domains]
+            : []
+        };
+      } else {
+        formData.value = {
+          name: '',
+          description: '',
+          domains: []
         };
       }
     });
