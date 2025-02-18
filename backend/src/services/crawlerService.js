@@ -179,7 +179,7 @@ class CrawlerService {
 
       // Try HTTPS first, fall back to HTTP if needed
       try {
-        const url = `https://${domain}`;
+        const url = domain.startsWith('http') ? domain : `https://${domain}`;
         this.urlDepths.set(url, 1);
         this.baseUrl = url;
         await this.processUrl(crawlId, url, driver, crawlRate);
@@ -191,7 +191,7 @@ class CrawlerService {
         }
       } catch (error) {
         console.log('HTTPS failed, trying HTTP');
-        const url = `http://${domain}`;
+        const url = domain.startsWith('http') ? domain : `http://${domain}`;
         this.urlDepths.set(url, 1);
         this.baseUrl = url;
         await this.processUrl(crawlId, url, driver, crawlRate);
@@ -510,15 +510,26 @@ class CrawlerService {
   isUrlInDomain(url) {
     try {
       const urlObj = new URL(url);
+      const baseUrlObj = new URL(this.baseUrl);
+      
+      // First check if the hostname matches
       const urlHostname = urlObj.hostname.toLowerCase();
-      const targetDomain = this.currentDomain.toLowerCase();
+      const baseHostname = baseUrlObj.hostname.toLowerCase();
       
       // Normalize domains for comparison
       const normalizedUrl = urlHostname.replace(/^www\./, '');
-      const normalizedTarget = targetDomain.replace(/^www\./, '');
+      const normalizedBase = baseHostname.replace(/^www\./, '');
       
-      console.log(`Comparing ${normalizedUrl} with ${normalizedTarget}`);
-      return normalizedUrl === normalizedTarget;
+      if (normalizedUrl !== normalizedBase) {
+        return false;
+      }
+      
+      // If hostnames match, check if the URL path starts with the base path
+      const basePath = baseUrlObj.pathname.replace(/\/$/, '');
+      const urlPath = urlObj.pathname.replace(/\/$/, '');
+      
+      console.log(`Comparing paths: base=${basePath}, url=${urlPath}`);
+      return urlPath.startsWith(basePath);
     } catch (error) {
       console.error('Invalid URL:', url);
       return false;
@@ -696,24 +707,30 @@ class CrawlerService {
   getUrlDepth(url) {
     try {
       const urlObj = new URL(url);
-      const basePath = new URL(this.baseUrl).pathname;
-      const currentPath = urlObj.pathname;
+      const baseUrlObj = new URL(this.baseUrl);
       
-      // Remove base path if it exists
-      const relativePath = currentPath.startsWith(basePath) 
-        ? currentPath.slice(basePath.length) 
-        : currentPath;
+      // Get the base path and current path
+      const basePath = baseUrlObj.pathname.replace(/\/$/, '');
+      const currentPath = urlObj.pathname.replace(/\/$/, '');
+      
+      // If the current path doesn't start with base path, return max depth to exclude it
+      if (!currentPath.startsWith(basePath)) {
+        return Number.MAX_SAFE_INTEGER;
+      }
+      
+      // Get the relative path by removing the base path
+      const relativePath = currentPath.slice(basePath.length);
       
       // Split path into segments and filter out empty segments
       const segments = relativePath.split('/').filter(segment => segment.length > 0);
       
-      // Depth is number of path segments + 1 (for the base URL)
+      // Depth is number of additional segments beyond the base path
       const depth = segments.length + 1;
-      console.log(`Calculated depth for ${url}: ${depth} (segments: ${segments.join('/')})`);
+      console.log(`Calculated depth for ${url}: ${depth} (base=${basePath}, relative=${relativePath})`);
       return depth;
     } catch (error) {
       console.error(`Error calculating depth for ${url}:`, error);
-      return 1;
+      return Number.MAX_SAFE_INTEGER;
     }
   }
 }

@@ -40,15 +40,22 @@ export default {
     async fetchProgress() {
       try {
         const response = await this.$store.dispatch('fetchCrawlProgress', this.crawlId);
-        this.progress = response.progress;
-        this.currentUrl = response.currentUrl;
         
-        // Stop polling when complete
-        if (response.status === 'completed' || response.status === 'failed') {
+        // Set progress to 100 if status is completed
+        if (response.status === 'completed') {
+          this.progress = 100;
           this.stopPolling();
+          this.$emit('complete');
+        } else if (response.status === 'failed' || response.status === 'cancelled') {
+          this.stopPolling();
+          this.$emit('complete');
+        } else {
+          this.progress = response.progress;
+          this.currentUrl = response.currentUrl;
         }
       } catch (error) {
         console.error('Error fetching progress:', error);
+        this.stopPolling();
       }
     },
     startPolling() {

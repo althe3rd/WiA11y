@@ -6,6 +6,7 @@
       <CrawlProgress 
         v-if="crawl.status === 'in_progress'"
         :crawlId="$route.params.id" 
+        @complete="fetchCrawl"
       />
       <ScanDetails :crawl="crawl" />
     </div>

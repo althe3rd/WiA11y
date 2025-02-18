@@ -5,8 +5,16 @@ const Team = require('../models/team');
 const queueService = require('../services/queueService');
 
 // Add a helper function to normalize domains
-function normalizeDomain(domain) {
-  return domain.replace(/^www\./i, '');
+function normalizeDomain(url) {
+  try {
+    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+    const hostname = urlObj.hostname.toLowerCase().replace(/^www\./i, '');
+    const path = urlObj.pathname.replace(/\/$/, '');
+    return path ? `${hostname}${path}` : hostname;
+  } catch (error) {
+    // If URL parsing fails, treat the input as a hostname
+    return url.toLowerCase().replace(/^www\./i, '');
+  }
 }
 
 const crawlController = {
@@ -29,8 +37,8 @@ const crawlController = {
         wcagLevel 
       } = req.body;
 
-      // Normalize the domain by removing www.
-      const normalizedDomain = normalizeDomain(domain);
+      // Use the full URL for domain normalization to preserve path
+      const normalizedDomain = normalizeDomain(url || domain);
 
       // Verify user has access to the team if specified
       if (team) {
@@ -51,7 +59,7 @@ const crawlController = {
       }
 
       const crawl = new Crawl({
-        url,
+        url: url || domain, // Use the full URL to preserve the path
         domain: normalizedDomain,
         team,
         createdBy: req.user._id,
