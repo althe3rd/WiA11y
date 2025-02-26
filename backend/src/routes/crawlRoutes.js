@@ -114,10 +114,26 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Crawl not found' });
     }
     
-    // Check if user has access to this crawl's team
-    const hasAccess = ['network_admin', 'admin'].includes(req.user.role) ||
-      crawl.team.members.includes(req.user._id) ||
-      crawl.team.teamAdmins.includes(req.user._id);
+    // Check if user has access to this crawl
+    let hasAccess = ['network_admin', 'admin'].includes(req.user.role);
+    
+    // If not admin, check if user created the crawl or is part of the team
+    if (!hasAccess) {
+      // Check if user created this crawl
+      if (crawl.createdBy && crawl.createdBy.toString() === req.user._id.toString()) {
+        hasAccess = true;
+      } 
+      // Check if user is part of the team
+      else if (crawl.team) {
+        const team = await Team.findById(crawl.team._id);
+        if (team && (
+          team.members.includes(req.user._id) || 
+          team.teamAdmins.includes(req.user._id)
+        )) {
+          hasAccess = true;
+        }
+      }
+    }
     
     if (!hasAccess) {
       return res.status(403).json({ error: 'Not authorized to view this scan' });

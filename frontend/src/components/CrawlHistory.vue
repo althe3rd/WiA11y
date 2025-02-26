@@ -1,5 +1,13 @@
 <template>
   <div class="crawl-history">
+    <div class="sort-controls">
+      <label for="sortBy">Sort by:</label>
+      <select id="sortBy" v-model="sortBy" class="sort-select">
+        <option value="date">Date (Latest First)</option>
+        <option value="domain">Domain Name (A-Z)</option>
+        <option value="score">Score (Highest First)</option>
+      </select>
+    </div>
     
     <div class="crawl-list">
       <div v-for="(domainData, domain) in groupedCrawls" :key="domain" class="domain-group">
@@ -238,6 +246,18 @@ export default {
       notes: '',
       isArchived: false
     });
+    const sortBy = ref('date');
+
+    const getLatestScore = (domainData) => {
+      // Find the most recent crawl across all WCAG specifications
+      const allCrawls = Object.values(domainData).flat();
+      const latestCrawl = allCrawls.reduce((latest, current) => {
+        return !latest || new Date(current.createdAt) > new Date(latest.createdAt) 
+          ? current 
+          : latest;
+      }, null);
+      return latestCrawl ? calculateScore(latestCrawl) : 'N/A';
+    };
 
     const fetchCrawls = async () => {
       try {
@@ -250,82 +270,51 @@ export default {
 
     // Add computed property for groupedCrawls
     const groupedCrawls = computed(() => {
-      // Filter crawls based on selected team and date range
-      let filtered = crawls.value;
-      
-      // Filter by team if selected
-      if (props.selectedTeam) {
-        filtered = filtered.filter(crawl => {
-          if (!crawl.team) return false;
-          try {
-            const teamId = typeof crawl.team === 'object' ? crawl.team._id : crawl.team;
-            return teamId?.toString() === props.selectedTeam?.toString();
-          } catch (error) {
-            console.error('Error comparing team IDs:', error);
-            return false;
-          }
-        });
-      }
-
-      // Get unique domains
-      const uniqueDomains = [...new Set(filtered.map(crawl => crawl.domain))];
-      
-      // Apply limit if set
-      if (props.limit > 0) {
-        uniqueDomains.splice(props.limit);
-      }
-      
-      // Filter crawls to only include the limited domains
-      if (props.limit > 0) {
-        filtered = filtered.filter(crawl => uniqueDomains.includes(crawl.domain));
-      }
-
-      // Filter by date range
-      if (props.selectedDateRange !== 'all') {
-        const now = new Date();
-        const ranges = {
-          week: 7,
-          month: 30,
-          quarter: 90
-        };
-        const days = ranges[props.selectedDateRange];
-        const cutoff = new Date(now.setDate(now.getDate() - days));
+      const grouped = crawls.value.reduce((acc, crawl) => {
+        const domain = crawl.domain;
+        const wcagSpec = `WCAG ${crawl.wcagVersion} Level ${crawl.wcagLevel}`;
         
-        filtered = filtered.filter(crawl => 
-          new Date(crawl.createdAt) >= cutoff
-        );
-      }
-
-      // First group by domain
-      const grouped = filtered.reduce((acc, crawl) => {
-        const key = crawl.domain.replace(/^www\./i, '');
-        if (!acc[key]) {
-          acc[key] = {};
+        if (!acc[domain]) {
+          acc[domain] = {};
         }
-        // Then subgroup by WCAG specification
-        const wcagKey = `WCAG ${crawl.wcagVersion} Level ${crawl.wcagLevel}`;
-        if (!acc[key][wcagKey]) {
-          acc[key][wcagKey] = [];
+        if (!acc[domain][wcagSpec]) {
+          acc[domain][wcagSpec] = [];
         }
-        acc[key][wcagKey].push(crawl);
+        acc[domain][wcagSpec].push(crawl);
         return acc;
       }, {});
-      
-      // Sort crawls within each WCAG specification by date
+
+      // Sort crawls within each WCAG spec group by date
       Object.keys(grouped).forEach(domain => {
         Object.keys(grouped[domain]).forEach(wcagSpec => {
           grouped[domain][wcagSpec].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         });
       });
       
-      // Sort domains by most recent crawl
-      return Object.fromEntries(
-        Object.entries(grouped).sort(([,a], [,b]) => {
-          const latestA = Math.max(...Object.values(a).flat().map(c => new Date(c.createdAt)));
-          const latestB = Math.max(...Object.values(b).flat().map(c => new Date(c.createdAt)));
-          return latestB - latestA;
-        })
-      );
+      // Sort domains based on selected sort option
+      let sortedEntries = Object.entries(grouped);
+      
+      switch (sortBy.value) {
+        case 'domain':
+          sortedEntries.sort(([a], [b]) => a.localeCompare(b));
+          break;
+        case 'score':
+          sortedEntries.sort(([,a], [,b]) => {
+            const scoreA = getLatestScore(a);
+            const scoreB = getLatestScore(b);
+            return scoreB - scoreA;
+          });
+          break;
+        case 'date':
+        default:
+          sortedEntries.sort(([,a], [,b]) => {
+            const latestA = Math.max(...Object.values(a).flat().map(c => new Date(c.createdAt)));
+            const latestB = Math.max(...Object.values(b).flat().map(c => new Date(c.createdAt)));
+            return latestB - latestA;
+          });
+      }
+      
+      return Object.fromEntries(sortedEntries);
     });
 
     const viewDetails = (crawl) => {
@@ -432,7 +421,9 @@ export default {
       saveDomainMetadata,
       groupedCrawls,
       fetchCrawls,
-      calculateScore
+      calculateScore,
+      sortBy,
+      getLatestScore
     };
   },
   methods: {
@@ -514,16 +505,6 @@ export default {
     getScoreTrendClass(currentScore, previousScore) {
       if (currentScore === '—' || previousScore === '—' || currentScore === previousScore) return 'neutral';
       return currentScore > previousScore ? 'improved' : 'declined';
-    },
-    getLatestScore(domainData) {
-      // Find the most recent crawl across all WCAG specifications
-      const allCrawls = Object.values(domainData).flat();
-      const latestCrawl = allCrawls.reduce((latest, current) => {
-        return !latest || new Date(current.createdAt) > new Date(latest.createdAt) 
-          ? current 
-          : latest;
-      }, null);
-      return latestCrawl ? this.calculateScore(latestCrawl) : 'N/A';
     },
     getDomainOverallTrendClass(domainData) {
       const allCrawls = Object.values(domainData).flat()
@@ -636,7 +617,40 @@ export default {
 
 <style scoped>
 .crawl-history {
+  /* Keep existing styles */
+}
+
+.sort-controls {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 400px;
+}
+
+.sort-controls label {
+  width: 100px;
+}
+
+.sort-select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--card-background);
+  color: var(--text-color);
+  font-size: 14px;
+  cursor: pointer;
   
+}
+
+.sort-select:hover {
+  border-color: var(--primary-color);
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(56, 143, 236, 0.1);
 }
 
 .crawl-list {

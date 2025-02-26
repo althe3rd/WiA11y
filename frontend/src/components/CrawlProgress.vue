@@ -7,11 +7,11 @@
       ></div>
     </div>
     <div class="progress-info" v-if="!compact">
-      <span>{{ Math.round(progress) }}% Complete</span>
+      <span>{{ Math.floor(progress) }}% Complete</span>
       <span v-if="currentUrl">Currently scanning: {{ currentUrl }}</span>
     </div>
     <div class="compact-info" v-else>
-      {{ Math.round(progress) }}%
+      {{ Math.floor(progress) }}%
     </div>
   </div>
 </template>
