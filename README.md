@@ -87,6 +87,38 @@ export const VIOLATION_WEIGHTS = {
 - Docker and Docker Compose (for containerized deployment)
 - Chrome/Chromium (for headless browser testing)
 
+### Environment Setup
+
+WiA11y uses environment variables for configuration. Before starting the application, you need to set up the appropriate environment files.
+
+1. **Create environment files**
+
+   Copy the example environment file and update it with your settings:
+
+   ```bash
+   cp backend/.env.example backend/.env.development
+   cp backend/.env.example backend/.env.production
+   ```
+
+   Then edit both files with your specific configuration values.
+
+2. **Required environment variables**
+
+   | Variable | Description |
+   |----------|-------------|
+   | PORT | Port for the backend server |
+   | MONGODB_URI | MongoDB connection string |
+   | JWT_SECRET | Secret key for JWT token generation |
+   | CORS_ORIGIN | Allowed origin for CORS |
+   | API_URL | URL for the backend API |
+   | FRONTEND_URL | URL for the frontend application |
+   | SMTP_HOST | SMTP server hostname |
+   | SMTP_PORT | SMTP server port |
+   | SMTP_SECURE | Whether to use secure SMTP |
+   | SMTP_USER | SMTP username/email |
+   | SMTP_PASS | SMTP password |
+   | SMTP_FROM | Email sender address |
+
 ### Local Development Setup
 
 1. **Clone the repository**
@@ -98,23 +130,7 @@ cd WiA11y
 
 2. **Set up environment variables**
 
-Create `.env.development` files in the backend directory:
-
-```bash
-# backend/.env.development
-PORT=3000
-MONGODB_URI=mongodb://localhost:27017/accessibility-crawler
-JWT_SECRET=your_development_secret_key
-CORS_ORIGIN=http://localhost:8080
-SMTP_HOST=your_smtp_host
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=your_email@example.com
-SMTP_PASS=your_smtp_password
-SMTP_FROM=WiA11y <noreply@example.com>
-FRONTEND_URL=http://localhost:8080
-API_URL=http://localhost:3000
-```
+Follow the environment setup instructions above.
 
 3. **Install dependencies**
 
@@ -152,7 +168,7 @@ For production or containerized deployment:
 
 1. **Set up environment variables**
 
-Create a `.env.production` file in the backend directory with your production settings.
+   Create the necessary environment files as described in the environment setup section.
 
 2. **Build and run with Docker Compose**
 
@@ -189,6 +205,8 @@ When deploying WiA11y, consider the following security best practices:
 5. **Regular Updates**: Keep all dependencies updated to mitigate security vulnerabilities.
 
 6. **Rate Limiting**: Consider implementing rate limiting for the API to prevent abuse.
+
+7. **Secrets Management**: For production deployments, consider using a secrets management solution like Docker Secrets, Kubernetes Secrets, or a dedicated service like HashiCorp Vault.
 
 ## User Roles
 
