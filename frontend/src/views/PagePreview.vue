@@ -30,8 +30,16 @@
                 :key="index"
                 class="violation-node"
                 :class="{ 'highlighted': isNodeHighlighted(node) }"
-                @click="scrollToElement(node.target)"
               >
+                <div class="violation-node-actions">
+                  <button 
+                    class="highlight-button" 
+                    @click="scrollToElement(node.target)"
+                    title="Highlight this element on the page"
+                  >
+                    <i class="fas fa-search"></i> Highlight Element
+                  </button>
+                </div>
                 <CodeBlock>{{ formatHtml(node.html) }}</CodeBlock>
                 <p class="failure-summary">{{ node.failureSummary }}</p>
                 
@@ -505,6 +513,9 @@ export default {
         (match, codeBlock) => {
           if (!codeBlock) return match;
           
+          // Special handling for <br> tags - temporarily replace them
+          codeBlock = codeBlock.replace(/<br>/g, '___BR_PLACEHOLDER___');
+          
           // Escape HTML entities to prevent rendering as actual HTML
           const escapedCode = codeBlock
             .replace(/&/g, '&amp;')
@@ -513,7 +524,10 @@ export default {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
           
-          return `<div class="code-block"><pre><code class="language-html">${escapedCode}</code></pre></div>`;
+          // Restore <br> tags as actual line breaks
+          const finalCode = escapedCode.replace(/___BR_PLACEHOLDER___/g, '<br>');
+          
+          return `<div class="code-block"><pre><code class="language-html">${finalCode}</code></pre></div>`;
         }
       );
       
@@ -527,6 +541,9 @@ export default {
             return inlineCode;
           } else {
             // This is code that should be displayed as text
+            // Special handling for <br> tags - temporarily replace them
+            inlineCode = inlineCode.replace(/<br>/g, '___BR_PLACEHOLDER___');
+            
             const escapedCode = inlineCode
               .replace(/&/g, '&amp;')
               .replace(/</g, '&lt;')
@@ -534,7 +551,10 @@ export default {
               .replace(/"/g, '&quot;')
               .replace(/'/g, '&#039;');
             
-            return `<code class="inline-code">${escapedCode}</code>`;
+            // Restore <br> tags as actual line breaks
+            const finalCode = escapedCode.replace(/___BR_PLACEHOLDER___/g, '<br>');
+            
+            return `<code class="inline-code">${finalCode}</code>`;
           }
         }
       );
@@ -716,7 +736,6 @@ export default {
 }
 
 .violation-node {
-  cursor: pointer;
   padding: 10px;
   border-radius: 4px;
   margin-bottom: 10px;
@@ -725,13 +744,38 @@ export default {
   transition: all 0.2s ease;
 }
 
-.violation-node:hover {
-  background: #e9ecef;
-}
-
 .violation-node.highlighted {
   border-color: #0d6efd;
   background-color: rgba(13, 110, 253, 0.05);
+}
+
+.violation-node-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.highlight-button {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.2s;
+}
+
+.highlight-button:hover {
+  background-color: #5a6268;
+}
+
+.highlight-button:focus {
+  outline: 2px solid #0d6efd;
+  outline-offset: 2px;
 }
 
 .impact-badge {
