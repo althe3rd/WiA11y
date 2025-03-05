@@ -146,6 +146,7 @@
                 <a :href="violation.helpUrl" target="_blank" class="help-link">Learn More</a>
               </div>
               <p class="violation-description">{{ violation.description }}</p>
+              
               <div class="violation-instances">
                 <div v-for="(instance, index) in violation.nodes" :key="index" class="violation-instance">
                   <router-link 
@@ -342,8 +343,9 @@ export default {
       calculateScore,
       expandedGroups,
       toggleUrlGroup,
+      formatHtml,
       getImpactWidth,
-      formatHtml
+      getViolationsPerPage
     }
   }
 }
@@ -696,5 +698,9 @@ export default {
   font-size: 0.9em;
   color: var(--text-muted);
   margin-left: 8px;
+}
+
+.violation-instances {
+  margin-left: 1.5rem;
 }
 </style> 

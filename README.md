@@ -9,6 +9,7 @@ WiA11y (pronounced "wh-ally") is a comprehensive web accessibility monitoring to
 - **Automated Accessibility Scanning**: Crawl websites and automatically detect WCAG accessibility violations
 - **Team Collaboration**: Organize scans by teams and domains for collaborative accessibility improvement
 - **Detailed Reports**: View comprehensive reports with violation details, impact levels, and remediation suggestions
+- **AI-Powered Remediation Suggestions**: Get contextual, AI-generated fix suggestions for specific accessibility violations
 - **Progress Tracking**: Monitor accessibility scores over time with trend graphs and historical data
 - **Customizable Settings**: Configure crawl depth, page limits, and WCAG standards (A, AA, AAA)
 - **Email Notifications**: Receive regular accessibility summary reports via email
@@ -69,6 +70,34 @@ export const VIOLATION_WEIGHTS = {
   minor: 1.0
 };
 ```
+
+## AI-Powered Accessibility Remediation
+
+WiA11y integrates with OpenAI's API to provide contextual remediation suggestions for accessibility violations:
+
+### How It Works
+
+1. When viewing a specific accessibility violation, users can request an AI-generated remediation suggestion
+2. The system sends the violation details, including the HTML code and failure information, to the OpenAI API
+3. The AI analyzes the specific context and generates a tailored fix suggestion
+4. The suggestion is displayed to the user with specific code examples and explanations
+
+### Benefits
+
+- **Contextual Fixes**: Suggestions are tailored to the specific HTML and violation context
+- **Educational Value**: Helps developers learn accessibility best practices through specific examples
+- **Time Savings**: Reduces research time by providing immediate, actionable suggestions
+- **Improved Remediation**: Higher quality fixes that consider the full context of the violation
+
+### Configuration
+
+To use the AI remediation feature, you need to:
+
+1. Obtain an OpenAI API key
+2. Add the key to your `.env` file as `OPENAI_API_KEY=your_key_here`
+3. Restart the backend server
+
+The feature is designed to be cost-effective, making targeted API calls only when users explicitly request suggestions.
 
 ## Tech Stack
 

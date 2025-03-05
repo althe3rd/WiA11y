@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Violation = require('../models/violation');
 const { auth } = require('../middleware/auth');
+const aiService = require('../services/aiService');
 
 // Apply auth middleware to all routes
 router.use(auth);
@@ -49,6 +50,46 @@ router.get('/:scanId/:url', async (req, res) => {
   } catch (error) {
     console.error('Error fetching page violations:', error);
     res.status(500).json({ error: 'Failed to fetch violations' });
+  }
+});
+
+// Generate AI remediation suggestion for a specific violation
+router.post('/remediation-suggestion', async (req, res) => {
+  try {
+    const { id, help, description, node } = req.body;
+    
+    // Validate request
+    if ((!id && !node._id) || !help || !node || !node.html) {
+      return res.status(400).json({ error: 'Missing required violation data' });
+    }
+
+    console.log('Generating remediation suggestion for:', {
+      id: id || 'region',
+      help,
+      descriptionLength: description?.length,
+      nodeHtmlLength: node?.html?.length
+    });
+
+    // Generate remediation suggestion using AI
+    const suggestion = await aiService.generateRemediationSuggestion({
+      id: id || 'region', // If id is missing, use 'region' as fallback (based on the help text)
+      help,
+      description,
+      node
+    });
+
+    console.log('Sending remediation suggestion response:', {
+      suggestionLength: suggestion?.length,
+      suggestionPreview: suggestion?.substring(0, 50) + '...'
+    });
+
+    res.json({ suggestion });
+  } catch (error) {
+    console.error('Error generating remediation suggestion:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate remediation suggestion',
+      message: error.message
+    });
   }
 });
 

@@ -7,7 +7,8 @@
     "start": "NODE_ENV=production node src/server.js",
     "dev": "NODE_ENV=development nodemon src/server.js",
     "docker:dev": "cd .. && docker-compose -f docker-compose.dev.yml up --build",
-    "docker:down": "cd .. && docker-compose -f docker-compose.dev.yml down"
+    "docker:down": "cd .. && docker-compose -f docker-compose.dev.yml down",
+    "setup:ai": "node scripts/setup-ai.js"
   },
   "dependencies": {
     "axe-core": "^4.8.4",
