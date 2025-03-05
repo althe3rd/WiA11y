@@ -66,6 +66,7 @@ jobs:
           SMTP_PASS="${{ secrets.SMTP_PASS }}" \
           SMTP_FROM="${{ secrets.SMTP_FROM }}" \
           FRONTEND_URL="https://wia11y.netlify.app" \
+          OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
           docker-compose -f docker-compose.yml up -d
           
           # Prune old images

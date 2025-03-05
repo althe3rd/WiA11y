@@ -17,6 +17,7 @@ services:
       - SMTP_PASS=${SMTP_PASS}
       - SMTP_FROM=${SMTP_FROM}
       - FRONTEND_URL=${FRONTEND_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHROME_TMPFS_DIR=/tmp/chrome-tmp
       - CHROME_BIN=/usr/bin/chromium
     depends_on:
