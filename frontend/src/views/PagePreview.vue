@@ -7,8 +7,8 @@
       <h2>{{ decodeURIComponent(url) }}</h2>
     </div>
 
-    <div class="preview-container">
-      <div class="violations-sidebar">
+    <div class="preview-container" ref="previewContainer">
+      <div class="violations-sidebar" ref="sidebar" :style="{ width: sidebarWidth + 'px' }">
         <h3>Violations on this page</h3>
         <div v-for="violation in pageViolations" :key="violation.id" class="violation-item">
           <div 
@@ -46,7 +46,7 @@
                       <span class="loading-spinner"></span> Generating suggestion...
                     </span>
                     <span v-else>
-                      <i class="fas fa-robot"></i> Get AI Remediation Suggestion
+                      <i class="fas fa-robot"></i> Get AI Suggestion
                     </span>
                   </button>
                   
@@ -82,6 +82,12 @@
         </div>
       </div>
 
+      <div class="resize-handle" 
+           @mousedown="startResize" 
+           title="Drag to resize"
+           :style="{ left: sidebarWidth + 'px' }">
+        <div class="handle-line"></div>
+      </div>
       <div class="preview-frame">
         <div class="loading" v-if="loading">Loading preview...</div>
         <iframe 
@@ -154,6 +160,9 @@ export default {
     const highlightedNode = ref(null)
     const aiSuggestions = ref({})
     const loadingSuggestions = ref({})
+    const previewContainer = ref(null)
+    const sidebar = ref(null)
+    const sidebarWidth = ref(400)
 
     const proxyUrl = computed(() => {
       const tokenValue = token.value.startsWith('Bearer ') ? token.value.slice(7) : token.value;
@@ -287,10 +296,20 @@ export default {
       console.log('getAISuggestion called with nodeKey:', nodeKey);
       console.log('Violation details:', { id: violation.id, _id: violation._id, help: violation.help });
       
-      // If we already have a suggestion for this node, don't fetch again
-      if (aiSuggestions.value && aiSuggestions.value[nodeKey]) {
-        console.log('Suggestion already exists for this node, returning early');
+      // If we already have a valid suggestion for this node, don't fetch again
+      // Check that the suggestion exists and is not an error message
+      if (aiSuggestions.value && 
+          aiSuggestions.value[nodeKey] && 
+          !aiSuggestions.value[nodeKey].startsWith('Error:')) {
+        console.log('Valid suggestion already exists for this node, returning early');
         return;
+      }
+      
+      // If we have an error suggestion, we should try again
+      if (aiSuggestions.value && 
+          aiSuggestions.value[nodeKey] && 
+          aiSuggestions.value[nodeKey].startsWith('Error:')) {
+        console.log('Previous attempt resulted in an error, trying again');
       }
       
       // Set loading state
@@ -303,10 +322,10 @@ export default {
       // Create a cache key based on the violation details and HTML content
       // This allows us to reuse suggestions for identical markup across different pages
       const cacheKey = JSON.stringify({
-        ruleId: violation.id || violation._id,
-        help: violation.help,
-        html: node.html,
-        target: node.target.join('-')
+        ruleId: violation.id || violation._id || 'unknown',
+        help: violation.help || '',
+        html: node.html || '',
+        target: node.target ? node.target.join('-') : ''
       });
       
       // Check if we have a cached suggestion
@@ -354,6 +373,11 @@ export default {
           fullSuggestion: suggestion
         });
         
+        // Check if the suggestion is valid
+        if (!suggestion || suggestion.trim() === '') {
+          throw new Error('Received empty suggestion from API');
+        }
+        
         // Store the suggestion using Vue's reactivity system
         // This ensures the UI updates when the suggestion is received
         aiSuggestions.value = {
@@ -372,10 +396,27 @@ export default {
         console.log('Verification - suggestion exists:', !!aiSuggestions.value[nodeKey], 'length:', aiSuggestions.value[nodeKey]?.length || 0);
       } catch (error) {
         console.error('Failed to get AI suggestion:', error)
+        
+        // Create a user-friendly error message
+        let errorMessage = 'Error: Unable to generate suggestion. Please try again.';
+        
+        if (error.response) {
+          // The request was made and the server responded with a status code
+          // that falls out of the range of 2xx
+          errorMessage = `Error: Server responded with status ${error.response.status}. Please try again.`;
+          console.error('Error response data:', error.response.data);
+        } else if (error.request) {
+          // The request was made but no response was received
+          errorMessage = 'Error: No response received from server. Please check your connection.';
+        } else if (error.message) {
+          // Something happened in setting up the request that triggered an Error
+          errorMessage = `Error: ${error.message}`;
+        }
+        
         // Store the error message using Vue's reactivity system
         aiSuggestions.value = {
           ...aiSuggestions.value,
-          [nodeKey]: 'Error: Unable to generate suggestion. Please try again.'
+          [nodeKey]: errorMessage
         };
         console.log('Stored error message in aiSuggestions for nodeKey:', nodeKey);
       } finally {
@@ -447,6 +488,11 @@ export default {
         return null;
       }
       
+      // Check if this is an error message and add appropriate class
+      if (suggestion.startsWith('Error:')) {
+        return `<span class="error-message">${suggestion}</span>`;
+      }
+      
       // Format the suggestion for display with proper HTML code formatting
       let formattedSuggestion = suggestion;
       
@@ -508,6 +554,28 @@ export default {
       }
     }
 
+    const startResize = (event) => {
+      const initialX = event.clientX
+      const initialWidth = sidebarWidth.value
+
+      const resize = (event) => {
+        const deltaX = event.clientX - initialX
+        const newWidth = initialWidth + deltaX
+        sidebarWidth.value = Math.max(200, Math.min(800, newWidth))
+      }
+
+      const stopResize = () => {
+        document.removeEventListener('mousemove', resize)
+        document.removeEventListener('mouseup', stopResize)
+      }
+
+      document.addEventListener('mousemove', resize)
+      document.addEventListener('mouseup', stopResize)
+      
+      // Prevent text selection during resize
+      event.preventDefault()
+    }
+
     onMounted(() => {
       // Refresh token value on mount
       token.value = localStorage.getItem('token')
@@ -531,7 +599,11 @@ export default {
       getNodeSuggestion,
       aiSuggestions,
       loadingSuggestions,
-      clearSuggestionCache
+      clearSuggestionCache,
+      previewContainer,
+      sidebar,
+      sidebarWidth,
+      startResize
     }
   }
 }
@@ -551,10 +623,34 @@ export default {
 }
 
 .preview-container {
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 20px;
+  display: flex;
   height: calc(100vh - 150px);
+  position: relative;
+}
+
+.resize-handle {
+  width: 10px;
+  cursor: col-resize;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 400px; /* Match initial sidebar width */
+  background-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.handle-line {
+  width: 4px;
+  height: 50px;
+  background-color: #ddd;
+  border-radius: 2px;
+}
+
+.resize-handle:hover .handle-line {
+  background-color: #0d6efd;
 }
 
 .violations-sidebar {
@@ -563,6 +659,9 @@ export default {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   overflow-y: auto;
+  min-width: 200px;
+  max-width: 800px;
+  flex-shrink: 0;
 }
 
 .violation-item {
@@ -668,6 +767,8 @@ export default {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   overflow: hidden;
+  flex-grow: 1;
+  margin-left: 20px;
 }
 
 .preview-frame iframe {
@@ -815,5 +916,93 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.suggestion-content .language-html {
+  white-space: normal;
+}
+</style>
+
+<!-- Non-scoped styles for dynamically inserted content -->
+<style>
+/* Styles for AI suggestion content */
+.suggestion-content .language-html {
+  white-space: normal;
+}
+
+.suggestion-content code {
+  font-family: 'Courier New', Courier, monospace;
+  background-color: #f5f5f5;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 13px;
+  color: #e83e8c;
+  border: 1px solid #e9ecef;
+}
+
+.suggestion-content .code-block {
+  margin: 16px 0;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  overflow: auto;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.suggestion-content .code-block pre {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.suggestion-content .code-block code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  color: #333;
+  line-height: 1.6;
+  display: block;
+  tab-size: 2;
+}
+
+/* Additional styles for better readability */
+.suggestion-content p {
+  margin: 12px 0;
+}
+
+.suggestion-content ul, 
+.suggestion-content ol {
+  margin: 12px 0;
+  padding-left: 24px;
+}
+
+.suggestion-content li {
+  margin-bottom: 6px;
+}
+
+.suggestion-content h1, 
+.suggestion-content h2, 
+.suggestion-content h3, 
+.suggestion-content h4, 
+.suggestion-content h5, 
+.suggestion-content h6 {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.suggestion-content a {
+  color: #0d6efd;
+  text-decoration: none;
+}
+
+.suggestion-content a:hover {
+  text-decoration: underline;
+}
+
+/* Styles for error messages */
+.error-message {
+  color: #dc3545;
+  font-weight: 500;
+  display: block;
 }
 </style> 
