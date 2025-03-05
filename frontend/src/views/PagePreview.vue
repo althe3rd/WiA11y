@@ -46,7 +46,7 @@
                       <span class="loading-spinner"></span> Generating suggestion...
                     </span>
                     <span v-else>
-                      <i class="fas fa-robot"></i> Get AI Suggestion
+                      <i class="fas fa-robot"></i> Experimental: Get AI Suggestion
                     </span>
                   </button>
                   
