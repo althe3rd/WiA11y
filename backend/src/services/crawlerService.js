@@ -258,8 +258,8 @@ class CrawlerService {
       
       console.log(`Processing URL at depth ${currentDepth}/${crawl.depthLimit}, pages scanned: ${crawl.pagesScanned}/${crawl.pageLimit}`);
 
-      // Normalize URL to prevent duplicates with/without trailing slash
-      const normalizedUrl = url.replace(/\/$/, '');
+      // Normalize URL to prevent duplicates with/without trailing slash and remove anchor fragments
+      const normalizedUrl = url.replace(/\/$/, '').split('#')[0];
       const visitedUrls = this.visitedUrlsByCrawl.get(crawlId);
       if (!visitedUrls) {
         console.error(`No visited URLs Set found for crawl ${crawlId}, reinitializing...`);
@@ -373,7 +373,17 @@ class CrawlerService {
           'link-name': { enabled: true },
           'list': { enabled: true },
           'listitem': { enabled: true },
-          'button-name': { enabled: true }
+          'button-name': { enabled: true },
+          'region': { 
+            enabled: true,
+            // Configure the region rule to better handle skip links
+            options: {
+              // This selector will match common skip link patterns and exempt them from the region rule
+              selector: 'a[href^="#"]:not([role]):not([aria-hidden="true"])',
+              // Set to true to exempt elements matching the selector from needing to be in a landmark
+              exemptFromRegion: true
+            }
+          }
         }
       };
       
@@ -382,7 +392,82 @@ class CrawlerService {
       // Add a wait to ensure dynamic content is loaded
       await driver.sleep(2000);
       
+      // Add custom script to modify axe-core behavior for skip links before running tests
+      await driver.executeScript(`
+        // Add a custom rule override for region to better handle skip links
+        if (typeof axe !== 'undefined' && axe.configure) {
+          // First, identify skip links by their text content and href
+          const skipLinkSelectors = [];
+          
+          // Find all links that might be skip links
+          const potentialSkipLinks = document.querySelectorAll('a[href^="#"]');
+          potentialSkipLinks.forEach(link => {
+            const linkText = link.textContent.toLowerCase();
+            // Check if the link text contains common skip link phrases
+            if (
+              linkText.includes('skip') || 
+              linkText.includes('jump to') || 
+              linkText.includes('go to content') ||
+              linkText.includes('main content')
+            ) {
+              // This is likely a skip link - add its specific selector
+              const href = link.getAttribute('href');
+              skipLinkSelectors.push(\`a[href="\${href}"]\`);
+            }
+          });
+          
+          // Create a combined selector for all identified skip links
+          const skipLinksSelector = skipLinkSelectors.length > 0 
+            ? skipLinkSelectors.join(', ') 
+            : 'a[href^="#"]:not([role]):not([aria-hidden="true"])';
+          
+          // Configure axe to exclude these skip links from the region rule
+          axe.configure({
+            rules: [{
+              id: 'region',
+              selector: \`body *:not(\${skipLinksSelector})\`
+            }]
+          });
+        }
+      `);
+      
       const results = await driver.executeScript(`return axe.run(document, ${JSON.stringify(axeConfig)})`);
+      
+      // Post-process results to filter out region violations related to skip links
+      if (results.violations && results.violations.length > 0) {
+        // Find the region rule violations
+        const regionViolationIndex = results.violations.findIndex(v => v.id === 'region');
+        
+        if (regionViolationIndex !== -1) {
+          const regionViolation = results.violations[regionViolationIndex];
+          
+          // Filter out nodes that are likely skip links
+          regionViolation.nodes = regionViolation.nodes.filter(node => {
+            // Check if this node contains a skip link
+            const html = node.html || '';
+            const target = node.target || [];
+            
+            // Skip link detection patterns
+            const isLikelySkipLink = (
+              // Check HTML content for skip link patterns
+              (html.toLowerCase().includes('skip') && html.toLowerCase().includes('content')) ||
+              html.toLowerCase().includes('jump to main') ||
+              html.toLowerCase().includes('skip to main') ||
+              // Check if the target is a link with an anchor href
+              (target.some(selector => selector.includes('a[href^="#"]')))
+            );
+            
+            // Keep the node only if it's NOT a skip link
+            return !isLikelySkipLink;
+          });
+          
+          // If all nodes were filtered out, remove the violation entirely
+          if (regionViolation.nodes.length === 0) {
+            results.violations.splice(regionViolationIndex, 1);
+          }
+        }
+      }
+      
       console.log('Axe results for', url, JSON.stringify({
         violations: results.violations.length,
         violationDetails: results.violations.map(v => ({
@@ -403,6 +488,9 @@ class CrawlerService {
   }
 
   async saveViolations(crawlId, url, violations) {
+    // Normalize URL by removing anchor fragments
+    const normalizedUrl = url.split('#')[0];
+    
     const violationsByImpact = {
       critical: 0,
       serious: 0,
@@ -422,7 +510,7 @@ class CrawlerService {
     let weightedDeductions = 0;
 
     if (!violations || violations.length === 0) {
-      console.log('No violations found for', url);
+      console.log('No violations found for', normalizedUrl);
       return;
     }
 
@@ -457,7 +545,7 @@ class CrawlerService {
 
       await Violation.create({
         crawlId,
-        url,
+        url: normalizedUrl,
         impact: violation.impact,
         description: violation.description,
         help: violation.help,
@@ -483,7 +571,7 @@ class CrawlerService {
     const newAverageScore = (currentTotalScore + pageScore) / newPagesScanned;
 
     console.log('Page accessibility score calculation:', {
-      url,
+      url: normalizedUrl,
       totalViolations,
       weightedDeductions,
       baseDeduction,
@@ -509,7 +597,9 @@ class CrawlerService {
 
   isUrlInDomain(url) {
     try {
-      const urlObj = new URL(url);
+      // Remove anchor fragments before creating URL object
+      const urlWithoutAnchor = url.split('#')[0];
+      const urlObj = new URL(urlWithoutAnchor);
       const baseUrlObj = new URL(this.baseUrl);
       
       // First check if the hostname matches
@@ -634,8 +724,8 @@ class CrawlerService {
     let validLinks = [];
 
     for (const link of links) {
-      // Normalize URL to prevent duplicates
-      const normalizedLink = link.replace(/\/$/, '');
+      // Normalize URL to prevent duplicates and remove anchor fragments
+      const normalizedLink = link.replace(/\/$/, '').split('#')[0];
       if (!visitedUrls.has(normalizedLink) && this.isUrlInDomain(link)) {
         const depth = this.getUrlDepth(link);
         // Check depth limit only
@@ -706,7 +796,9 @@ class CrawlerService {
 
   getUrlDepth(url) {
     try {
-      const urlObj = new URL(url);
+      // Remove anchor fragments before creating URL object
+      const urlWithoutAnchor = url.split('#')[0];
+      const urlObj = new URL(urlWithoutAnchor);
       const baseUrlObj = new URL(this.baseUrl);
       
       // Get the base path and current path

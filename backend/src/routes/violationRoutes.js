@@ -10,14 +10,19 @@ router.use(auth);
 // Get violations for a specific page in a scan
 router.get('/:scanId/:url', async (req, res) => {
   try {
+    // Normalize URL by removing anchor fragments
+    const decodedUrl = decodeURIComponent(req.params.url);
+    const normalizedUrl = decodedUrl.split('#')[0];
+    
     console.log('Fetching violations for:', {
       scanId: req.params.scanId,
-      url: decodeURIComponent(req.params.url)
+      originalUrl: decodedUrl,
+      normalizedUrl: normalizedUrl
     });
 
     const violations = await Violation.find({
       crawlId: req.params.scanId,
-      url: decodeURIComponent(req.params.url)
+      url: normalizedUrl
     }).lean();
 
     console.log('Found violations:', violations.length);
