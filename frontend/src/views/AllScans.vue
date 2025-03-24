@@ -22,7 +22,7 @@ export default {
 .all-scans {
   padding: 40px;
   padding-top: 60px;
-  max-width: 1200px;
+  max-width: var(--container-width);
   margin: 0 auto;
 }
 

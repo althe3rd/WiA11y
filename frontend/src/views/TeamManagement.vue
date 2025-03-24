@@ -232,7 +232,7 @@ export default {
 <style scoped>
 .team-management {
   padding: 40px;
-  max-width: 1200px;
+  max-width: var(--container-width);
   margin: 0 auto;
 }
 

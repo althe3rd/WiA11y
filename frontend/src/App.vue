@@ -24,7 +24,7 @@
         </router-link>
       </div>
       <div class="nav-right">
-        <QueueStatus />
+        <QueueStatus mode="simplified" />
         <DarkModeToggle />
         <div class="user-info">
           <span class="user-name">{{ user?.name }}</span>
@@ -166,6 +166,7 @@ export default {
   --dropdown-background: #ffffff;
   --dropdown-hover: var(--background-color);
   --chart-grid: #e1e4e8;
+  --container-width: 1400px;
 }
 
 * {
@@ -262,6 +263,7 @@ h1, h2, h3 {
 }
 
 h1 {
+  display: inline-block;
   font-size: 2.5rem;
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
   -webkit-background-clip: text;
@@ -298,7 +300,7 @@ label {
 }
 
 /* User info styles */
-.user-info {
+.main-nav .user-info {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -310,12 +312,12 @@ label {
   transition: all 0.2s ease;
 }
 
-.user-name {
+.main-nav .user-name {
   font-weight: 500;
   color: var(--text-color);
 }
 
-.role-info {
+.main-nav .role-info {
   display: flex;
   align-items: center;
   gap: 0;

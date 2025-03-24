@@ -35,25 +35,46 @@
       :selectedDateRange="selectedDateRange"
     />
     <h2>Last 10 Scans</h2>
-    <CrawlHistory 
-      :selectedTeam="selectedTeam"
-      :selectedDateRange="selectedDateRange"
-      :limit="10"
-    />
+    
+    <div class="dashboard-content">
+      <div class="dashboard-column">
+        <QueueStatus v-if="isNetworkAdmin || isTeamAdmin" mode="detailed" />
+      </div>
+      <div class="dashboard-column">
+        <div class="card" v-if="isLoading">
+          <div class="loading-spinner">Loading crawl history...</div>
+        </div>
+        <div class="card" v-else-if="errorMessage">
+          <div class="error-message">{{ errorMessage }}</div>
+        </div>
+        <CrawlHistory 
+          :selectedTeam="selectedTeam"
+          :selectedDateRange="selectedDateRange"
+          :limit="10" 
+          ref="crawlHistory"
+          @crawls-loaded="handleCrawlsLoaded"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, defineAsyncComponent } from 'vue'
 import { useStore } from 'vuex'
-import CrawlHistory from '../components/CrawlHistory.vue'
 import TeamStats from '../components/TeamStats.vue'
+// Use defineAsyncComponent to avoid circular dependencies
+const CrawlHistory = defineAsyncComponent(() => import('../components/CrawlHistory.vue'))
+const CrawlForm = defineAsyncComponent(() => import('../components/CrawlForm.vue'))
+const QueueStatus = defineAsyncComponent(() => import('../components/QueueStatus.vue'))
 
 export default {
   name: 'Dashboard',
   components: {
+    TeamStats,
     CrawlHistory,
-    TeamStats
+    CrawlForm,
+    QueueStatus
   },
   setup() {
     const store = useStore()
@@ -74,12 +95,34 @@ export default {
       return store.state.teams
     })
     
+    const isNetworkAdmin = computed(() => {
+      return store.getters.isNetworkAdmin
+    })
+    
+    const isTeamAdmin = computed(() => {
+      return store.getters.isTeamAdmin
+    })
+    
+    const isLoading = ref(false)
+    const errorMessage = ref('')
+    const crawlHistory = ref(null)
+    
+    const handleCrawlsLoaded = (crawls) => {
+      // Handle the loaded crawls
+    }
+    
     return {
       userFirstName,
       selectedTeam,
       selectedDateRange,
       showFilters,
-      availableTeams
+      availableTeams,
+      isNetworkAdmin,
+      isTeamAdmin,
+      isLoading,
+      errorMessage,
+      crawlHistory,
+      handleCrawlsLoaded
     }
   }
 }
@@ -88,9 +131,45 @@ export default {
 <style scoped>
 .dashboard {
   padding: 40px;
-  padding-top: 60px;
-  max-width: 1200px;
+  max-width: var(--container-width);
   margin: 0 auto;
+}
+
+.dashboard-header {
+  margin-bottom: 20px;
+}
+
+.dashboard-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media screen and (min-width: 1200px) {
+  .dashboard-content {
+    flex-direction: row;
+  }
+  
+  .dashboard-column {
+    flex: 1;
+  }
+  
+  .dashboard-column:first-child {
+    flex: 0 0 400px;
+  }
+}
+
+.dashboard-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.overview-card {
+  background: var(--card-background);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  padding: 20px;
 }
 
 .dashboard-header-text h1, h2, h3 {
@@ -99,13 +178,6 @@ export default {
 
 .dashboard-header-text h2 {
   font-weight: 300;
-}
-
-.dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
 }
 
 .view-all-link {

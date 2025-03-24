@@ -162,6 +162,11 @@ const crawlController = {
   },
   async cancelCrawl(req, res) {
     try {
+      // Validate crawl ID
+      if (!req.params.id || req.params.id === 'undefined') {
+        return res.status(400).json({ error: 'Invalid crawl ID' });
+      }
+
       const crawl = await Crawl.findById(req.params.id);
       
       if (!crawl) {
@@ -175,14 +180,26 @@ const crawlController = {
       }
 
       // Only try to cancel if the crawl is in progress or pending
-      if (['in_progress', 'pending'].includes(crawl.status)) {
-        // Cancel the crawl in the crawler service
-        await crawlerService.cancelCrawl(crawl._id);
+      if (['in_progress', 'pending', 'queued'].includes(crawl.status)) {
+        console.log(`Attempting to cancel crawl ${crawl._id} with status ${crawl.status}`);
+        
+        // Cancel the crawl in both services
+        // First, cancel in the crawler service if it's running
+        if (crawl.status === 'in_progress') {
+          await crawlerService.cancelCrawl(crawl._id);
+        }
+        
+        // Then, make sure it's removed from the queue
+        if (['queued', 'pending'].includes(crawl.status)) {
+          await queueService.cancelQueuedCrawl(crawl._id);
+        }
         
         // Update the crawl status
         crawl.status = 'cancelled';
         crawl.completedAt = new Date();
         await crawl.save();
+        
+        console.log(`Successfully cancelled crawl ${crawl._id}`);
       } else {
         console.log(`Crawl ${crawl._id} is already in ${crawl.status} state`);
       }

@@ -17,9 +17,21 @@ router.get('/status', crawlController.getQueueStatus);
 // Get all crawls
 router.get('/', async (req, res) => {
   try {
-    // If network admin, get all crawls
+    console.log('Fetching crawls with params:', req.query);
+    
+    // Build query object based on request parameters
+    const query = {};
+    
+    // Add status filter if specified
+    if (req.query.status) {
+      query.status = req.query.status;
+    }
+    
+    console.log('Using query filter:', query);
+    
+    // If network admin, get all crawls with applied filters
     if (['network_admin', 'admin'].includes(req.user.role)) {
-      const crawls = await Crawl.find()
+      const crawls = await Crawl.find(query)
         .sort({ createdAt: -1 })
         .populate('team', 'name _id')
         .lean();
@@ -53,7 +65,7 @@ router.get('/', async (req, res) => {
       return res.json(crawlsWithViolations);
     }
     
-    // Otherwise get crawls for teams user is member of
+    // Otherwise get crawls for teams user is member of with applied filters
     const userTeams = await Team.find({
       $or: [
         { members: req.user._id },
@@ -63,9 +75,10 @@ router.get('/', async (req, res) => {
     
     const teamIds = userTeams.map(team => team._id);
     
-    const crawls = await Crawl.find({
-      team: { $in: teamIds }
-    })
+    // Combine team filter with other filters
+    query.team = { $in: teamIds };
+    
+    const crawls = await Crawl.find(query)
     .sort({ createdAt: -1 })
     .populate('team', 'name _id')
     .lean();
@@ -104,7 +117,7 @@ router.get('/', async (req, res) => {
 });
 
 // Get single crawl
-router.get('/:id', async (req, res) => {
+router.get('/:id', auth, async (req, res) => {
   try {
     const crawl = await Crawl.findById(req.params.id)
       .populate('team', 'name _id')
@@ -188,7 +201,7 @@ router.post('/:id/cancel', crawlController.cancelCrawl);
 router.delete('/:id', crawlController.deleteCrawl);
 
 // Get crawl progress
-router.get('/:id/progress', async (req, res) => {
+router.get('/:id/progress', auth, async (req, res) => {
   try {
     const crawl = await Crawl.findById(req.params.id);
     if (!crawl) {

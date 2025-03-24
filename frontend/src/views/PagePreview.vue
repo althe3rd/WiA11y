@@ -66,7 +66,7 @@
                   
                   <!-- AI Suggestion Result -->
                   <div v-if="getNodeSuggestion(node)" class="ai-suggestion-result">
-                    <h5>AI Suggested Fix:</h5>
+                    <h5><i class="fas fa-lightbulb"></i> AI Suggested Fix:</h5>
                     <div class="suggestion-content" v-html="getNodeSuggestion(node)"></div>
                   </div>
                   
@@ -448,6 +448,111 @@ export default {
       return !!loadingSuggestions.value[nodeKey];
     }
     
+    // Add this new method to format AI suggestions
+    const formatAISuggestion = (suggestion) => {
+      if (!suggestion) return '';
+      
+      // Check if this is an error message
+      if (suggestion.startsWith('Error:')) {
+        return `<span class="error-message">${suggestion}</span>`;
+      }
+      
+      let formattedSuggestion = suggestion;
+      
+      // First, normalize line breaks to ensure consistent processing
+      formattedSuggestion = formattedSuggestion.replace(/\r\n/g, '\n');
+      
+      // Pre-process HTML tags to be escaped in the text
+      formattedSuggestion = formattedSuggestion.replace(
+        /(<[^>]+>)/g,
+        (match) => {
+          // Skip Markdown style stuff
+          if (match.startsWith('***') || match.startsWith('**') || match.startsWith('*') || 
+              match.startsWith('```') || match.startsWith('`')) {
+            return match;
+          }
+          
+          // Escape HTML tags
+          return match
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        }
+      );
+      
+      // Split the suggestion into sections based on paragraph breaks
+      const sections = formattedSuggestion.split(/\n\n+/);
+      
+      // Process each section separately
+      const processedSections = sections.map(section => {
+        // Replace single line breaks with <br> tags
+        let processedSection = section.replace(/\n/g, '<br>');
+        
+        // Process Markdown-style bold with semantic tags
+        processedSection = processedSection.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        return `<p>${processedSection}</p>`;
+      });
+      
+      // Rejoin the sections
+      formattedSuggestion = processedSections.join('');
+      
+      // Process code blocks with ```html ... ``` syntax (this should be outside the paragraph handling)
+      formattedSuggestion = formattedSuggestion.replace(
+        /<p>```html\s*([\s\S]*?)\s*```<\/p>/g, 
+        (match, codeBlock) => {
+          if (!codeBlock) return match;
+          
+          // Special handling for <br> tags - temporarily replace them
+          codeBlock = codeBlock.replace(/<br>/g, '___BR_PLACEHOLDER___');
+          
+          // Escape HTML entities to prevent rendering as actual HTML (but skip if already escaped)
+          const escapedCode = codeBlock
+            .replace(/&lt;/g, '___LT_PLACEHOLDER___')
+            .replace(/&gt;/g, '___GT_PLACEHOLDER___')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;')
+            .replace(/___LT_PLACEHOLDER___/g, '&lt;')
+            .replace(/___GT_PLACEHOLDER___/g, '&gt;');
+          
+          // Restore <br> tags as actual line breaks
+          const finalCode = escapedCode.replace(/___BR_PLACEHOLDER___/g, '<br>');
+          
+          return `<div class="code-block"><pre><code class="language-html">${finalCode}</code></pre></div>`;
+        }
+      );
+      
+      // Process inline code with backticks
+      formattedSuggestion = formattedSuggestion.replace(
+        /`([^`]+)`/g,
+        (match, inlineCode) => {
+          // Special handling for <br> tags - temporarily replace them
+          inlineCode = inlineCode.replace(/<br>/g, '___BR_PLACEHOLDER___');
+          
+          // Escape HTML entities to prevent rendering as actual HTML (but skip if already escaped)
+          const escapedCode = inlineCode
+            .replace(/&lt;/g, '___LT_PLACEHOLDER___')
+            .replace(/&gt;/g, '___GT_PLACEHOLDER___')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;')
+            .replace(/___LT_PLACEHOLDER___/g, '&lt;')
+            .replace(/___GT_PLACEHOLDER___/g, '&gt;');
+          
+          // Restore <br> tags as actual line breaks
+          const finalCode = escapedCode.replace(/___BR_PLACEHOLDER___/g, '<br>');
+          
+          return `<code class="inline-code">${finalCode}</code>`;
+        }
+      );
+      
+      return formattedSuggestion;
+    };
+
     const getNodeSuggestion = (node) => {
       if (!node || !node.target || !aiSuggestions.value) {
         console.log('getNodeSuggestion: Early return due to missing data', {
@@ -496,71 +601,8 @@ export default {
         return null;
       }
       
-      // Check if this is an error message and add appropriate class
-      if (suggestion.startsWith('Error:')) {
-        return `<span class="error-message">${suggestion}</span>`;
-      }
-      
-      // Format the suggestion for display with proper HTML code formatting
-      let formattedSuggestion = suggestion;
-      
-      // Replace newlines with <br> tags
-      formattedSuggestion = formattedSuggestion.replace(/\n/g, '<br>');
-      
-      // First handle code blocks with ```html ... ``` syntax
-      formattedSuggestion = formattedSuggestion.replace(
-        /```html\s*([\s\S]*?)\s*```/g, 
-        (match, codeBlock) => {
-          if (!codeBlock) return match;
-          
-          // Special handling for <br> tags - temporarily replace them
-          codeBlock = codeBlock.replace(/<br>/g, '___BR_PLACEHOLDER___');
-          
-          // Escape HTML entities to prevent rendering as actual HTML
-          const escapedCode = codeBlock
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-          
-          // Restore <br> tags as actual line breaks
-          const finalCode = escapedCode.replace(/___BR_PLACEHOLDER___/g, '<br>');
-          
-          return `<div class="code-block"><pre><code class="language-html">${finalCode}</code></pre></div>`;
-        }
-      );
-      
-      // Then handle inline code with backticks that should be displayed as code
-      formattedSuggestion = formattedSuggestion.replace(
-        /`([^`]+)`/g,
-        (match, inlineCode) => {
-          // Check if this is HTML code that should be rendered
-          if (inlineCode.trim().startsWith('<') && inlineCode.trim().endsWith('>')) {
-            // This is HTML that should be rendered
-            return inlineCode;
-          } else {
-            // This is code that should be displayed as text
-            // Special handling for <br> tags - temporarily replace them
-            inlineCode = inlineCode.replace(/<br>/g, '___BR_PLACEHOLDER___');
-            
-            const escapedCode = inlineCode
-              .replace(/&/g, '&amp;')
-              .replace(/</g, '&lt;')
-              .replace(/>/g, '&gt;')
-              .replace(/"/g, '&quot;')
-              .replace(/'/g, '&#039;');
-            
-            // Restore <br> tags as actual line breaks
-            const finalCode = escapedCode.replace(/___BR_PLACEHOLDER___/g, '<br>');
-            
-            return `<code class="inline-code">${finalCode}</code>`;
-          }
-        }
-      );
-      
-      console.log('Returning formatted suggestion with length:', formattedSuggestion.length);
-      return formattedSuggestion;
+      // Use the dedicated method to format the suggestion
+      return formatAISuggestion(suggestion);
     }
 
     const clearSuggestionCache = () => {
@@ -830,105 +872,7 @@ export default {
   color: #666;
 }
 
-.ai-suggestion-container {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.ai-suggestion-button {
-  background-color: #6366f1;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 12px;
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: background-color 0.2s;
-}
-
-.ai-suggestion-button:hover {
-  background-color: #4f46e5;
-}
-
-.ai-suggestion-button:disabled {
-  background-color: #9ca3af;
-  cursor: not-allowed;
-}
-
-.loading-spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top-color: white;
-  animation: spin 1s ease-in-out infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.ai-suggestion-result {
-  background-color: #f3f4f6;
-  border-radius: 4px;
-  padding: 12px;
-  border-left: 4px solid #6366f1;
-}
-
-.ai-suggestion-result h5 {
-  margin-top: 0;
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: #4b5563;
-}
-
-.suggestion-content {
-  white-space: pre-wrap;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.code-block {
-  margin: 16px 0;
-  background-color: #f8f9fa;
-  border-radius: 6px;
-  border: 1px solid #e9ecef;
-  overflow: auto;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
-.code-block pre {
-  margin: 0;
-  padding: 16px;
-  overflow-x: auto;
-}
-
-.code-block code {
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 14px;
-  color: #333;
-  line-height: 1.6;
-  display: block;
-  tab-size: 2;
-}
-
-.inline-code {
-  font-family: 'Courier New', Courier, monospace;
-  background-color: #f5f5f5;
-  padding: 2px 4px;
-  border-radius: 3px;
-  font-size: 13px;
-  color: #e83e8c;
-  border: 1px solid #e9ecef;
-}
-
+/* Debug info styles */
 .debug-info {
   margin-top: 10px;
   padding: 8px;
@@ -961,15 +905,112 @@ export default {
   justify-content: space-between;
   align-items: center;
 }
-
-.suggestion-content .language-html {
-  white-space: normal;
-}
 </style>
 
 <!-- Non-scoped styles for dynamically inserted content -->
 <style>
-/* Styles for AI suggestion content */
+/* All AI suggestion styles are now here */
+.ai-suggestion-container {
+  margin-top: 16px;
+}
+
+.ai-suggestion-button {
+  padding: 8px 16px;
+  background-color: #f0f7f0;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-suggestion-button:hover {
+  background-color: #e8f5e9;
+  border-color: #81c784;
+}
+
+.ai-suggestion-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(46, 125, 50, 0.3);
+  border-top-color: #2e7d32;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.ai-suggestion-result {
+  margin-top: 16px;
+  border-left: 4px solid #4caf50;
+  padding-left: 0;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.ai-suggestion-result h5 {
+  margin-top: 0;
+  padding: 12px 16px;
+  background-color: rgba(76, 175, 80, 0.1);
+  font-weight: 600;
+  color: #2e7d32;
+  border-top-right-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-suggestion-result h5 i {
+  color: #f9a825;
+}
+
+.suggestion-content {
+  padding: 0 16px 16px;
+  line-height: 1.6;
+  font-size: 15px;
+}
+
+.suggestion-content p {
+  margin: 12px 0;
+  line-height: 1.6;
+}
+
+.suggestion-content p:first-child {
+  margin-top: 16px;
+}
+
+.suggestion-content p + .code-block,
+.suggestion-content .code-block + p {
+  margin-top: 16px;
+}
+
+.suggestion-content strong {
+  color: #2e7d32;
+  font-weight: 600;
+  display: block;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+/* Create more spacing for remediation suggestions */
+.suggestion-content p:has(strong) {
+  margin-top: 20px;
+}
+
 .suggestion-content .language-html {
   white-space: normal;
 }
@@ -982,6 +1023,14 @@ export default {
   font-size: 13px;
   color: #e83e8c;
   border: 1px solid #e9ecef;
+}
+
+.suggestion-content code.inline-code {
+  background-color: #f5f5f5;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 13px;
+  color: #e83e8c;
 }
 
 .suggestion-content .code-block {
@@ -1006,13 +1055,41 @@ export default {
   line-height: 1.6;
   display: block;
   tab-size: 2;
+  background-color: transparent;
+  border: none;
+  padding: 0;
+}
+
+/* Enhanced code syntax highlighting */
+.suggestion-content .code-block code .tag {
+  color: #0d6efd;
+}
+
+.suggestion-content .code-block code .attr {
+  color: #e83e8c;
+}
+
+.suggestion-content .code-block code .string {
+  color: #28a745;
+}
+
+/* Better spacing for code examples */
+.suggestion-content code.inline-code {
+  margin: 0 2px;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+
+/* Make sure HTML tags stand out in text */
+.suggestion-content p code.inline-code {
+  background-color: #f8f9fa;
+  color: #e83e8c;
+  border: 1px solid #e9ecef;
+  border-radius: 3px;
+  font-size: 0.9em;
 }
 
 /* Additional styles for better readability */
-.suggestion-content p {
-  margin: 12px 0;
-}
-
 .suggestion-content ul, 
 .suggestion-content ol {
   margin: 12px 0;

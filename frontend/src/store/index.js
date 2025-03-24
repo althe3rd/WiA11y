@@ -36,6 +36,12 @@ export default createStore({
         },
         async cancelCrawl({ commit }, crawlId) {
           try {
+            if (!crawlId || crawlId === 'undefined') {
+              console.error('Invalid crawlId provided to cancelCrawl:', crawlId);
+              throw new Error('Invalid crawl ID');
+            }
+            
+            console.log(`Attempting to cancel crawl with ID: ${crawlId}`);
             const token = localStorage.getItem('token');
             const { data } = await api.post(
               `/api/crawls/${crawlId}/cancel`,
@@ -46,9 +52,15 @@ export default createStore({
                 }
               }
             );
+            console.log('Crawl cancelled successfully:', data);
             return data;
           } catch (error) {
-            throw error.response?.data || error;
+            console.error('Error cancelling crawl:', error);
+            // Extract error message for better user feedback
+            const errorMessage = error.response?.data?.error || 
+                                error.message || 
+                                'Failed to cancel crawl';
+            throw { error: errorMessage };
           }
         }
       }

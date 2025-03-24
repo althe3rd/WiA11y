@@ -34,6 +34,18 @@ const settingsSchema = new mongoose.Schema({
   useDefaultLogo: {
     type: Boolean,
     default: true
+  },
+  maxCrawlers: {
+    type: Number,
+    default: 1,
+    min: 1,
+    max: 10,
+    validate: {
+      validator: function(v) {
+        return Number.isInteger(v) && v > 0 && v <= 10;
+      },
+      message: 'Max crawlers must be an integer between 1 and 10'
+    }
   }
 }, {
   timestamps: true

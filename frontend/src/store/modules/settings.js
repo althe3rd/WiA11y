@@ -30,7 +30,8 @@ const loadInitialState = () => {
     useDefaultLogo: true,
     darkMode,
     isLoading: false,
-    error: null
+    error: null,
+    maxCrawlers: 1
   }
   
   if (savedSettings) {
@@ -198,6 +199,9 @@ const mutations = {
     if (settings.logo) {
       state.logo = settings.logo
     }
+    if (settings.maxCrawlers) {
+      state.maxCrawlers = settings.maxCrawlers
+    }
     // Preserve dark mode state
     if (typeof settings.darkMode === 'boolean') {
       state.darkMode = settings.darkMode
@@ -208,7 +212,8 @@ const mutations = {
       secondaryColor: settings.secondaryColor,
       title: settings.title,
       logo: settings.logo,
-      useDefaultLogo: settings.useDefaultLogo
+      useDefaultLogo: settings.useDefaultLogo,
+      maxCrawlers: settings.maxCrawlers
     }))
   },
   SET_LOGO(state, logo) {

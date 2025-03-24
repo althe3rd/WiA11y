@@ -140,6 +140,32 @@
           </div>
         </div>
 
+        <div class="setting-group">
+          <h3>Performance Configuration</h3>
+          <div class="performance-settings">
+            <div class="form-group">
+              <label for="maxCrawlers">Maximum Parallel Crawlers</label>
+              <div class="crawler-config">
+                <input
+                  type="number" 
+                  id="maxCrawlers"
+                  v-model.number="settings.maxCrawlers"
+                  min="1"
+                  max="10"
+                  step="1"
+                />
+                <span class="input-description">
+                  Number of simultaneous crawls that can run (1-10)
+                </span>
+              </div>
+              <div class="help-text">
+                Higher values allow more crawls to run in parallel, but may impact system performance.
+                <br>Changes only affect new crawls added to the queue.
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="setting-group" v-if="isTeamAdmin || isNetworkAdmin">
           <h3>Email Notifications</h3>
           <div class="email-notifications">
@@ -216,7 +242,8 @@ export default {
       primaryColor: store.state.settings.primaryColor,
       secondaryColor: store.state.settings.secondaryColor,
       title: store.state.settings.title,
-      useDefaultLogo: store.state.settings.useDefaultLogo
+      useDefaultLogo: store.state.settings.useDefaultLogo,
+      maxCrawlers: store.state.settings.maxCrawlers
     })
     
     const emailConfig = ref({
@@ -257,7 +284,8 @@ export default {
       return settings.value.primaryColor !== store.state.settings.primaryColor ||
              settings.value.secondaryColor !== store.state.settings.secondaryColor ||
              settings.value.title !== store.state.settings.title ||
-             settings.value.useDefaultLogo !== store.state.settings.useDefaultLogo
+             settings.value.useDefaultLogo !== store.state.settings.useDefaultLogo ||
+             settings.value.maxCrawlers !== store.state.settings.maxCrawlers
     })
 
     const handleLogoUpload = async (event) => {
@@ -309,7 +337,8 @@ export default {
           primaryColor: updatedSettings.primaryColor,
           secondaryColor: updatedSettings.secondaryColor,
           title: updatedSettings.title,
-          useDefaultLogo: updatedSettings.useDefaultLogo
+          useDefaultLogo: updatedSettings.useDefaultLogo,
+          maxCrawlers: updatedSettings.maxCrawlers
         }
         alert('Settings saved successfully')
       } catch (error) {
@@ -425,7 +454,8 @@ export default {
         primaryColor: store.state.settings.primaryColor,
         secondaryColor: store.state.settings.secondaryColor,
         title: store.state.settings.title,
-        useDefaultLogo: store.state.settings.useDefaultLogo
+        useDefaultLogo: store.state.settings.useDefaultLogo,
+        maxCrawlers: store.state.settings.maxCrawlers
       }
       await fetchEmailConfig()
       if (store.getters.isTeamAdmin || store.getters.isNetworkAdmin) {
@@ -466,7 +496,7 @@ export default {
 <style scoped>
 .settings-view {
   padding: 40px;
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
 }
 
@@ -764,9 +794,14 @@ export default {
 }
 
 .help-text {
-  margin-top: 5px;
-  font-size: 0.9em;
+  margin-top: 10px;
+  font-size: 0.85em;
   color: var(--text-muted);
+  line-height: 1.5;
+  background-color: rgba(0, 0, 0, 0.03);
+  padding: 8px;
+  border-radius: 4px;
+  border-left: 3px solid var(--primary-color);
 }
 
 .send-now-button {
@@ -805,5 +840,33 @@ export default {
 .send-result.error {
   background-color: var(--error-background);
   color: #dc3545;
+}
+
+.performance-settings {
+  background: var(--background-color);
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.crawler-config {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.crawler-config input {
+  width: 50px;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.input-description {
+  font-size: 0.9em;
+  color: var(--text-muted);
 }
 </style> 

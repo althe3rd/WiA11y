@@ -38,7 +38,10 @@
           </span>
         </div>
         <div class="user-teams">
-          <div class="team-badges" v-if="user.teams && user.teams.length">
+          <div v-if="user.role === 'network_admin'" class="team-badges">
+            <span class="all-teams-badge">All Teams</span>
+          </div>
+          <div class="team-badges" v-else-if="user.teams && user.teams.length">
             <span v-for="team in user.teams" :key="team._id" class="team-badge">
               {{ team.name }}
             </span>
@@ -403,6 +406,20 @@ export default {
   border-radius: 12px;
   font-size: 12px;
   white-space: nowrap;
+  margin-right: 4px;
+  margin-bottom: 4px;
+  display: inline-block;
+}
+
+.all-teams-badge {
+  background-color: var(--badge-background, #ffeba3);
+  color: var(--badge-color, #946c00);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-block;
 }
 
 .no-teams {

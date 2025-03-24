@@ -68,7 +68,7 @@ const settingsController = {
         return res.status(403).json({ error: 'Not authorized' });
       }
 
-      const { primaryColor, secondaryColor, title, useDefaultLogo } = req.body;
+      const { primaryColor, secondaryColor, title, useDefaultLogo, maxCrawlers } = req.body;
 
       let settings = await Settings.findOne();
       if (!settings) {
@@ -79,6 +79,14 @@ const settingsController = {
       if (secondaryColor) settings.secondaryColor = secondaryColor;
       if (title) settings.title = title;
       if (typeof useDefaultLogo === 'boolean') settings.useDefaultLogo = useDefaultLogo;
+      if (maxCrawlers !== undefined) {
+        const crawlersValue = parseInt(maxCrawlers, 10);
+        if (!isNaN(crawlersValue) && crawlersValue >= 1 && crawlersValue <= 10) {
+          settings.maxCrawlers = crawlersValue;
+        } else {
+          return res.status(400).json({ error: 'maxCrawlers must be an integer between 1 and 10' });
+        }
+      }
 
       await settings.save();
       res.json(settings);

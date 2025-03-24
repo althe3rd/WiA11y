@@ -203,7 +203,7 @@
 
 <script>
 import axios from 'axios';
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch, computed, onUnmounted } from 'vue';
 import AccessibilityTrendGraph from './AccessibilityTrendGraph.vue';
 import LoadingSpinner from './LoadingSpinner.vue';
 import { useRouter } from 'vue-router';
@@ -234,7 +234,7 @@ export default {
     CrawlProgress,
     RadialProgress
   },
-  setup(props) {
+  setup(props, { emit }) {
     const router = useRouter();
     const crawls = ref([]);
     const pollInterval = ref(null);
@@ -261,35 +261,160 @@ export default {
 
     const fetchCrawls = async () => {
       try {
-        const response = await api.get('/api/crawls');
-        crawls.value = response.data;
+        console.log('Fetching crawls...');
+        const response = await api.get('/api/crawls', {
+          // Add a timestamp to prevent caching
+          params: { _t: new Date().getTime() }
+        });
+        
+        console.log('Crawls data received:', response?.data);
+        
+        if (response?.data && Array.isArray(response.data)) {
+          // Update the crawls value with the new data
+          crawls.value = response.data;
+          console.log('Crawls array updated with', crawls.value.length, 'items');
+          
+          // Check if we have any in-progress crawls that we need to keep polling for
+          const hasInProgressCrawls = crawls.value.some(crawl => crawl.status === 'in_progress');
+          console.log('Has in-progress crawls:', hasInProgressCrawls);
+          
+          // Emit an event with the crawls data
+          try {
+            emit('crawls-loaded', crawls.value);
+            console.log('Emitted crawls-loaded event');
+          } catch (error) {
+            console.error('Error emitting crawls-loaded event:', error);
+          }
+        } else {
+          console.error('Unexpected crawls data format:', response?.data);
+          // If we get an invalid response, try again in 1s
+          setTimeout(fetchCrawls, 1000);
+        }
       } catch (error) {
         console.error('Failed to fetch crawls:', error);
+        if (error.response) {
+          console.error('Error response data:', error.response.data);
+          console.error('Error response status:', error.response.status);
+        } else if (error.request) {
+          console.error('No response received, request:', error.request);
+        } else {
+          console.error('Error setting up request:', error.message);
+        }
+        
+        // Try again in 3s if there was an error
+        setTimeout(fetchCrawls, 3000);
       }
     };
+    
+    // Start polling for crawls
+    onMounted(() => {
+      console.log('CrawlHistory component mounted - starting initial fetch');
+      fetchCrawls();
+      
+      // Set up polling interval
+      console.log('Setting up polling interval for crawl updates');
+      pollInterval.value = setInterval(() => {
+        console.log('Polling for crawl updates');
+        fetchCrawls();
+      }, 5000);
+    });
+    
+    // Clean up polling on unmount
+    onUnmounted(() => {
+      console.log('CrawlHistory component unmounting - clearing poll interval');
+      if (pollInterval.value) {
+        clearInterval(pollInterval.value);
+        pollInterval.value = null;
+      }
+    });
 
     // Add computed property for groupedCrawls
     const groupedCrawls = computed(() => {
-      const grouped = crawls.value.reduce((acc, crawl) => {
-        const domain = crawl.domain;
+      console.log('Computing groupedCrawls with', crawls.value.length, 'crawls');
+      
+      // Check if crawls array is empty or undefined
+      if (!crawls.value || crawls.value.length === 0) {
+        console.log('No crawls data available');
+        return {};
+      }
+      
+      // Filter by team if selected
+      let filteredCrawls = [...crawls.value];
+      if (props.selectedTeam) {
+        filteredCrawls = filteredCrawls.filter(crawl => {
+          const teamId = crawl.team?._id || crawl.team;
+          return teamId === props.selectedTeam;
+        });
+        console.log('Filtered by team:', props.selectedTeam, 'remaining:', filteredCrawls.length);
+      }
+      
+      // Filter by date range
+      if (props.selectedDateRange !== 'all') {
+        const now = new Date();
+        let startDate;
+        
+        switch(props.selectedDateRange) {
+          case 'week':
+            startDate = new Date(now.setDate(now.getDate() - 7));
+            break;
+          case 'month':
+            startDate = new Date(now.setMonth(now.getMonth() - 1));
+            break;
+          case 'quarter':
+            startDate = new Date(now.setMonth(now.getMonth() - 3));
+            break;
+        }
+        
+        filteredCrawls = filteredCrawls.filter(crawl => {
+          return new Date(crawl.createdAt) >= startDate;
+        });
+        console.log('Filtered by date range:', props.selectedDateRange, 'remaining:', filteredCrawls.length);
+      }
+      
+      // Apply limit if provided
+      if (props.limit > 0) {
+        // Sort by date first to ensure we get the most recent
+        filteredCrawls.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        filteredCrawls = filteredCrawls.slice(0, props.limit);
+        console.log('Applied limit:', props.limit, 'remaining:', filteredCrawls.length);
+      }
+      
+      // Group by domain and WCAG spec
+      const grouped = {};
+      
+      for (const crawl of filteredCrawls) {
+        // Skip if domain is missing
+        if (!crawl.domain) {
+          console.warn('Crawl is missing domain:', crawl._id);
+          continue;
+        }
+        
+        // Normalize domain
+        const domain = crawl.domain.replace(/^www\./i, '');
+        
+        // Create domain entry if it doesn't exist
+        if (!grouped[domain]) {
+          grouped[domain] = {};
+        }
+        
+        // Get WCAG specification
         const wcagSpec = `WCAG ${crawl.wcagVersion} Level ${crawl.wcagLevel}`;
         
-        if (!acc[domain]) {
-          acc[domain] = {};
+        // Create WCAG spec entry if it doesn't exist
+        if (!grouped[domain][wcagSpec]) {
+          grouped[domain][wcagSpec] = [];
         }
-        if (!acc[domain][wcagSpec]) {
-          acc[domain][wcagSpec] = [];
-        }
-        acc[domain][wcagSpec].push(crawl);
-        return acc;
-      }, {});
-
-      // Sort crawls within each WCAG spec group by date
-      Object.keys(grouped).forEach(domain => {
-        Object.keys(grouped[domain]).forEach(wcagSpec => {
+        
+        // Add crawl to the group
+        grouped[domain][wcagSpec].push(crawl);
+      }
+      
+      // Sort crawls by date within each WCAG spec
+      for (const domain of Object.keys(grouped)) {
+        for (const wcagSpec of Object.keys(grouped[domain])) {
           grouped[domain][wcagSpec].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        });
-      });
+        }
+      }
       
       // Sort domains based on selected sort option
       let sortedEntries = Object.entries(grouped);
@@ -314,6 +439,7 @@ export default {
           });
       }
       
+      console.log('Final groupedCrawls has', sortedEntries.length, 'domains');
       return Object.fromEntries(sortedEntries);
     });
 
@@ -400,12 +526,6 @@ export default {
         fetchDomainMetadata();
       } else {
         domainMetadata.value = {};
-      }
-    });
-
-    onMounted(() => {
-      if (props.selectedTeam) {
-        fetchDomainMetadata();
       }
     });
 
@@ -604,10 +724,27 @@ export default {
     }
   },
   created() {
+    console.log('CrawlHistory component created - starting initial fetch');
     this.fetchCrawls();
-    this.pollInterval = setInterval(this.fetchCrawls, 5000);
+    
+    // Set up polling interval
+    console.log('Setting up polling interval for crawl updates');
+    this.pollInterval = setInterval(() => {
+      console.log('Polling for crawl updates');
+      this.fetchCrawls();
+    }, 5000);
+  },
+  beforeUnmount() {
+    console.log('CrawlHistory component unmounting - clearing poll interval');
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+    }
+  },
+  unmounted() {
+    console.log('CrawlHistory component unmounted');
   },
   beforeDestroy() {
+    console.log('CrawlHistory component destroying - clearing poll interval (legacy)');
     if (this.pollInterval) {
       clearInterval(this.pollInterval);
     }
