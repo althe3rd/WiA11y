@@ -66,6 +66,9 @@ router.get('/', async (req, res) => {
     }
     
     // Otherwise get crawls for teams user is member of with applied filters
+    // This includes parent teams and their child teams
+    
+    // First get the teams the user is directly a member of
     const userTeams = await Team.find({
       $or: [
         { members: req.user._id },
@@ -73,15 +76,25 @@ router.get('/', async (req, res) => {
       ]
     });
     
-    const teamIds = userTeams.map(team => team._id);
+    const directTeamIds = userTeams.map(team => team._id);
+    
+    // Then get all child teams of the user's teams (teams where the parent is one of the user's teams)
+    const childTeams = await Team.find({
+      parentTeam: { $in: directTeamIds }
+    });
+    
+    const childTeamIds = childTeams.map(team => team._id);
+    
+    // Combine direct teams and child teams
+    const allAccessibleTeamIds = [...directTeamIds, ...childTeamIds];
     
     // Combine team filter with other filters
-    query.team = { $in: teamIds };
+    query.team = { $in: allAccessibleTeamIds };
     
     const crawls = await Crawl.find(query)
-    .sort({ createdAt: -1 })
-    .populate('team', 'name _id')
-    .lean();
+      .sort({ createdAt: -1 })
+      .populate('team', 'name _id')
+      .lean();
 
     // Get violation counts for each crawl
     const crawlsWithViolations = await Promise.all(crawls.map(async (crawl) => {
@@ -136,14 +149,33 @@ router.get('/:id', auth, async (req, res) => {
       if (crawl.createdBy && crawl.createdBy.toString() === req.user._id.toString()) {
         hasAccess = true;
       } 
-      // Check if user is part of the team
+      // Check if user is part of the team or a parent team
       else if (crawl.team) {
+        // Get the team for this crawl
         const team = await Team.findById(crawl.team._id);
-        if (team && (
-          team.members.includes(req.user._id) || 
-          team.teamAdmins.includes(req.user._id)
-        )) {
-          hasAccess = true;
+        
+        if (team) {
+          // Check direct team membership
+          if (team.members.includes(req.user._id) || team.teamAdmins.includes(req.user._id)) {
+            hasAccess = true;
+          }
+          // Check parent team hierarchy
+          else {
+            // Start with the current team and traverse up the parent chain
+            let currentTeam = team;
+            while (currentTeam && currentTeam.parentTeam && !hasAccess) {
+              // Get the parent team
+              currentTeam = await Team.findById(currentTeam.parentTeam);
+              // Check if user is a member or admin of the parent team
+              if (currentTeam && (
+                currentTeam.members.includes(req.user._id) || 
+                currentTeam.teamAdmins.includes(req.user._id)
+              )) {
+                hasAccess = true;
+                break;
+              }
+            }
+          }
         }
       }
     }

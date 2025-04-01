@@ -23,37 +23,48 @@
       <div v-else-if="error" class="error">
         {{ error }}
       </div>
-      <div v-else class="teams-grid">
-        <div v-for="team in teams" :key="team._id" class="team-card">
-          <div class="team-header">
-            <h3>{{ team.name }}</h3>
-            <div class="team-actions">
-              <button 
-                @click="editTeam(team)"
-                class="button-secondary"
-              >
-                Edit
-              </button>
-              <button 
-                @click="manageMembers(team)"
-                class="button-secondary"
-              >
-                Manage Members
-              </button>
-            </div>
-          </div>
-          <p class="team-description">{{ team.description }}</p>
-          <div class="team-stats">
-            <div class="stat">
-              <span class="label">Members:</span>
-              <span class="value">{{ team.members?.length || 0 }}</span>
-            </div>
-            <div class="stat">
-              <span class="label">Admins:</span>
-              <span class="value">{{ team.teamAdmins?.length || 0 }}</span>
-            </div>
+      <div v-else class="teams-container">
+        <div class="table-controls">
+          <div class="search-filter">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search teams..." 
+              class="search-input"
+            />
           </div>
         </div>
+        
+        <table class="teams-table">
+          <thead>
+            <tr>
+              <th>Team Name</th>
+              <th>Description</th>
+              <th>Members</th>
+              <th>Admins</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-if="organizedTeams.length === 0">
+              <tr>
+                <td colspan="5" class="no-teams">No teams found.</td>
+              </tr>
+            </template>
+            <template v-else>
+              <team-row 
+                v-for="team in organizedTeams" 
+                :key="team._id" 
+                :team="team" 
+                :level="0"
+                @edit="editTeam"
+                @manage="manageMembers"
+                @toggle="toggleTeam"
+                :expanded-teams="expandedTeams"
+              />
+            </template>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -82,13 +93,15 @@ import api from '../api/axios'
 import TeamModal from '../components/TeamModal.vue'
 import MemberModal from '../components/MemberModal.vue'
 import TeamRequests from '../components/TeamRequests.vue'
+import TeamRow from '../components/TeamRow.vue'
 
 export default {
   name: 'TeamManagement',
   components: {
     TeamModal,
     MemberModal,
-    TeamRequests
+    TeamRequests,
+    TeamRow
   },
   setup() {
     const store = useStore()
@@ -100,8 +113,69 @@ export default {
     const selectedTeam = ref(null)
     const loading = ref(true)
     const error = ref(null)
+    const searchQuery = ref('')
+    const expandedTeams = ref([])
 
     const isNetworkAdmin = computed(() => store.getters.isNetworkAdmin)
+    
+    // Organize teams into parent/child hierarchy with unlimited depth
+    const organizedTeams = computed(() => {
+      if (!teams.value.length) return [];
+      
+      let filtered = [...teams.value];
+      
+      // Apply search filter if provided
+      if (searchQuery.value.trim()) {
+        const query = searchQuery.value.toLowerCase();
+        filtered = filtered.filter(team => 
+          team.name.toLowerCase().includes(query) || 
+          (team.description && team.description.toLowerCase().includes(query))
+        );
+        
+        // When filtering, return a flat list for better results display
+        return filtered.sort((a, b) => a.name.localeCompare(b.name));
+      }
+      
+      // Build a nested hierarchy
+      // First, get the top-level teams (teams with no parent)
+      const topLevelTeams = filtered.filter(team => !team.parentTeam);
+      
+      // Create a map of teams by ID for easy lookup
+      const teamsById = filtered.reduce((acc, team) => {
+        acc[team._id] = { ...team, childTeams: [] };
+        return acc;
+      }, {});
+      
+      // Build the hierarchy
+      filtered.forEach(team => {
+        if (team.parentTeam && teamsById[team.parentTeam._id]) {
+          teamsById[team.parentTeam._id].childTeams.push(teamsById[team._id]);
+        }
+      });
+      
+      // Sort all teams by name
+      const sortTeams = (teams) => {
+        teams.sort((a, b) => a.name.localeCompare(b.name));
+        teams.forEach(team => {
+          if (team.childTeams && team.childTeams.length) {
+            sortTeams(team.childTeams);
+          }
+        });
+        return teams;
+      };
+      
+      // Return the sorted top-level teams with their nested children
+      return sortTeams(topLevelTeams.map(team => teamsById[team._id]));
+    });
+
+    const toggleTeam = (teamId) => {
+      const index = expandedTeams.value.indexOf(teamId);
+      if (index === -1) {
+        expandedTeams.value.push(teamId);
+      } else {
+        expandedTeams.value.splice(index, 1);
+      }
+    };
 
     const fetchTeams = async () => {
       try {
@@ -223,7 +297,11 @@ export default {
       manageMembers,
       closeTeamModal,
       saveTeam,
-      updateTeamMembers
+      updateTeamMembers,
+      organizedTeams,
+      expandedTeams,
+      toggleTeam,
+      searchQuery
     }
   }
 }
@@ -254,62 +332,122 @@ export default {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.teams-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+.teams-container {
   margin-top: 20px;
 }
 
-.team-card {
-  background: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.team-header {
+.table-controls {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  justify-content: flex-end;
   margin-bottom: 15px;
 }
 
-.team-header h3 {
-  margin: 0;
+.search-input {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  width: 250px;
+}
+
+.teams-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.teams-table th,
+.teams-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.teams-table th {
+  background-color: var(--background-color);
+  font-weight: 600;
   color: var(--text-color);
 }
 
-.team-actions {
+.teams-table tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.teams-table tbody tr.parent-team {
+  background-color: var(--background-color);
+}
+
+.teams-table tbody tr.child-team {
+  background-color: rgba(56, 143, 236, 0.04);
+}
+
+.team-name {
+  font-weight: 500;
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
 }
 
-.team-description {
-  color: var(--text-muted);
-  margin-bottom: 20px;
-}
-
-.team-stats {
-  display: flex;
-  gap: 20px;
-}
-
-.stat {
-  background: var(--background-color);
-  padding: 8px 12px;
-  border-radius: 4px;
-}
-
-.stat .label {
-  color: var(--text-muted);
+.expand-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
   margin-right: 8px;
+  color: var(--primary-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
 }
 
-.stat .value {
-  font-weight: 600;
+.expand-btn.expanded {
+  transform: rotate(0deg);
+}
+
+.child-indent {
   color: var(--primary-color);
+  margin-left: 4px;
+}
+
+.badge {
+  background-color: var(--primary-color);
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 8px;
+}
+
+.actions-cell {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.edit-btn {
+  color: var(--primary-color);
+}
+
+.members-btn {
+  color: #4CAF50;
+}
+
+.action-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.no-teams {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 30px 0;
 }
 
 .loading, .error {
@@ -338,5 +476,17 @@ export default {
   padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
+}
+
+.teams-table tbody tr.child-team {
+  background-color: rgba(56, 143, 236, 0.04);
+}
+
+.teams-table tbody tr.child-team:nth-child(odd) {
+  background-color: rgba(56, 143, 236, 0.06);
+}
+
+.teams-table tbody tr.child-team:hover {
+  background-color: rgba(56, 143, 236, 0.1);
 }
 </style> 

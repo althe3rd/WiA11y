@@ -19,7 +19,10 @@ import {
   faCalendar,
   faChartLine,
   faEdit,
-  faRedoAlt
+  faRedoAlt,
+  faUsers,
+  faChevronRight,
+  faChevronDown
 } from '@fortawesome/free-solid-svg-icons'
 
 /* Add icons to the library */
@@ -35,7 +38,10 @@ library.add(
   faCalendar,
   faChartLine,
   faEdit,
-  faRedoAlt
+  faRedoAlt,
+  faUsers,
+  faChevronRight,
+  faChevronDown
 )
 
 // Create the Vue application

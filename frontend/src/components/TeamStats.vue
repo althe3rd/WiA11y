@@ -106,19 +106,58 @@ export default {
     const filteredCrawls = computed(() => {
       let filtered = crawls.value
       
-      // Filter by team if selected
+      // Filter by team if selected (including child teams)
       if (props.selectedTeam) {
-        filtered = filtered.filter(crawl => {
-          // Handle both populated and unpopulated team references
-          if (!crawl.team) return false;
-          try {
-            const teamId = typeof crawl.team === 'object' ? crawl.team._id : crawl.team;
-            return teamId?.toString() === props.selectedTeam?.toString();
-          } catch (error) {
-            console.error('Error comparing team IDs:', error);
-            return false;
-          }
-        })
+        // Get all teams from the store
+        const allTeams = store.state.teams || [];
+        // Get selected team object
+        const selectedTeamObj = allTeams.find(t => t._id === props.selectedTeam);
+        
+        if (selectedTeamObj) {
+          // Build a list of team IDs to include (the selected team and all its sub-teams)
+          const teamIdsToInclude = [props.selectedTeam];
+          
+          // Find all child teams recursively
+          const findChildTeams = (parentId) => {
+            const childTeams = allTeams.filter(t => t.parentTeam && t.parentTeam._id === parentId);
+            
+            childTeams.forEach(childTeam => {
+              teamIdsToInclude.push(childTeam._id);
+              findChildTeams(childTeam._id); // Recursively find nested children
+            });
+          };
+          
+          // Start recursive search for child teams
+          findChildTeams(props.selectedTeam);
+          
+          // Filter crawls to only include those from the selected team or its children
+          filtered = filtered.filter(crawl => {
+            // Handle both populated and unpopulated team references
+            if (!crawl.team) return false;
+            try {
+              const teamId = typeof crawl.team === 'object' ? crawl.team._id : crawl.team;
+              return teamIdsToInclude.includes(teamId);
+            } catch (error) {
+              console.error('Error comparing team IDs:', error);
+              return false;
+            }
+          });
+          
+          console.log('TeamStats: Filtered by team hierarchy:', props.selectedTeam, 'including sub-teams:', teamIdsToInclude);
+        } else {
+          // Fallback to original filtering if selected team not found
+          filtered = filtered.filter(crawl => {
+            // Handle both populated and unpopulated team references
+            if (!crawl.team) return false;
+            try {
+              const teamId = typeof crawl.team === 'object' ? crawl.team._id : crawl.team;
+              return teamId?.toString() === props.selectedTeam?.toString();
+            } catch (error) {
+              console.error('Error comparing team IDs:', error);
+              return false;
+            }
+          });
+        }
       }
       
       // Filter by date range

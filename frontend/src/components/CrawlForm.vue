@@ -17,17 +17,13 @@
 
       <div class="form-group">
         <label for="team">Team</label>
-        <select 
+        <TeamSelector 
           id="team" 
           v-model="formData.team" 
-          required
-          :class="{ 'error': !formData.team && formData.url }"
-        >
-          <option value="">Select a team</option>
-          <option v-for="team in availableTeams" :key="team._id" :value="team._id">
-            {{ team.name }}
-          </option>
-        </select>
+          :required="true"
+          :showAllOption="false"
+          :selectClass="{ 'error': !formData.team && formData.url }"
+        />
         <small class="helper-text error" v-if="!formData.team && formData.url">
           Please select a team to start the scan
         </small>
@@ -139,9 +135,13 @@
 import { ref, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
 import api from '../api/axios';  // Use the configured instance
+import TeamSelector from './TeamSelector.vue';
 
 export default {
   name: 'CrawlForm',
+  components: {
+    TeamSelector
+  },
   setup() {
     const store = useStore();
     const teams = ref([]);

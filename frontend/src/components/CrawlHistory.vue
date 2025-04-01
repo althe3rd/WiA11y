@@ -108,6 +108,9 @@
                 <p class="created-by" v-if="crawl.createdBy">
                   Created by: {{ crawl.createdBy.name }} - {{ crawl.createdBy.email }}
                 </p>
+                <p class="team-info" v-if="crawl.team">
+                  Team: {{ typeof crawl.team === 'object' ? crawl.team.name : getTeamName(crawl.team) }}
+                </p>
                 <p>Speed: {{ getCrawlSpeed(crawl.crawlRate) }}</p>
                 <p>Depth Limit: {{ getDepthLabel(crawl.depthLimit) }}</p>
                 <p>WCAG Specification: {{ getWcagSpec(crawl) }}</p>
@@ -215,6 +218,7 @@ import CrawlProgress from './CrawlProgress.vue';
 import RadialProgress from './RadialProgress.vue';
 import api from '../api/axios';
 import { calculateScore } from '../utils/scoreCalculator';
+import store from '../store';
 
 export default {
   name: 'CrawlHistory',
@@ -342,14 +346,47 @@ export default {
         return {};
       }
       
-      // Filter by team if selected
+      // Filter by team if selected (including child teams)
       let filteredCrawls = [...crawls.value];
+      
       if (props.selectedTeam) {
-        filteredCrawls = filteredCrawls.filter(crawl => {
-          const teamId = crawl.team?._id || crawl.team;
-          return teamId === props.selectedTeam;
-        });
-        console.log('Filtered by team:', props.selectedTeam, 'remaining:', filteredCrawls.length);
+        // Get all teams from the store
+        const allTeams = store.state.teams || [];
+        // Get selected team object
+        const selectedTeamObj = allTeams.find(t => t._id === props.selectedTeam);
+        
+        if (selectedTeamObj) {
+          // Build a list of team IDs to include (the selected team and all its sub-teams)
+          const teamIdsToInclude = [props.selectedTeam];
+          
+          // Find all child teams recursively
+          const findChildTeams = (parentId) => {
+            const childTeams = allTeams.filter(t => t.parentTeam && t.parentTeam._id === parentId);
+            
+            childTeams.forEach(childTeam => {
+              teamIdsToInclude.push(childTeam._id);
+              findChildTeams(childTeam._id); // Recursively find nested children
+            });
+          };
+          
+          // Start recursive search for child teams
+          findChildTeams(props.selectedTeam);
+          
+          // Filter crawls to only include those from the selected team or its children
+          filteredCrawls = filteredCrawls.filter(crawl => {
+            const teamId = crawl.team?._id || crawl.team;
+            return teamIdsToInclude.includes(teamId);
+          });
+          
+          console.log('Filtered by team hierarchy:', props.selectedTeam, 'including sub-teams:', teamIdsToInclude, 'remaining:', filteredCrawls.length);
+        } else {
+          // Fallback to original filtering if selected team not found
+          filteredCrawls = filteredCrawls.filter(crawl => {
+            const teamId = crawl.team?._id || crawl.team;
+            return teamId === props.selectedTeam;
+          });
+          console.log('Filtered by team ID only:', props.selectedTeam, 'remaining:', filteredCrawls.length);
+        }
       }
       
       // Filter by date range
@@ -449,6 +486,14 @@ export default {
 
     const viewDetails = (crawl) => {
       router.push(`/scans/${crawl._id}`);
+    };
+    
+    const getTeamName = (teamId) => {
+      // Get all teams from the store
+      const allTeams = store.state.teams || [];
+      // Find the team with the matching ID
+      const team = allTeams.find(t => t._id === teamId);
+      return team ? team.name : 'Unknown Team';
     };
     
     const fetchDomainMetadata = async () => {
@@ -578,7 +623,8 @@ export default {
       fetchCrawls,
       calculateScore,
       sortBy,
-      getLatestScore
+      getLatestScore,
+      getTeamName
     };
   },
   methods: {
@@ -1379,6 +1425,12 @@ export default {
 }
 
 .created-by {
+  color: var(--text-muted);
+  font-size: 0.9em;
+  margin-bottom: 8px;
+}
+
+.team-info {
   color: var(--text-muted);
   font-size: 0.9em;
   margin-bottom: 8px;

@@ -31,15 +31,33 @@ const teamController = {
           select: 'name email _id',
           model: 'User'
         })
+        .populate({
+          path: 'parentTeam',
+          select: 'name _id',
+          model: 'Team'
+        })
         .lean()
         .exec();
       
-      // Ensure members and teamAdmins are always arrays
-      const processedTeams = teams.map(team => ({
-        ...team,
-        members: team.members || [],
-        teamAdmins: team.teamAdmins || []
-      }));
+      // Find child teams for each team
+      const allTeams = await Team.find().select('name _id parentTeam').lean();
+      
+      // Ensure members and teamAdmins are always arrays and add childTeams
+      const processedTeams = teams.map(team => {
+        const childTeams = allTeams.filter(t => 
+          t.parentTeam && t.parentTeam.toString() === team._id.toString()
+        );
+        
+        return {
+          ...team,
+          members: team.members || [],
+          teamAdmins: team.teamAdmins || [],
+          childTeams: childTeams.map(child => ({
+            _id: child._id,
+            name: child.name
+          }))
+        };
+      });
       
       res.json(processedTeams);
     } catch (error) {
@@ -50,15 +68,24 @@ const teamController = {
 
   async createTeam(req, res) {
     try {
-      const { name, description } = req.body;
+      const { name, description, parentTeam } = req.body;
       
       const team = new Team({
         name,
         description,
         teamAdmins: [req.user._id],
         members: [],
-        createdBy: req.user._id
+        createdBy: req.user._id,
+        parentTeam: parentTeam || null
       });
+      
+      // Validate parent team if provided
+      if (parentTeam) {
+        const parent = await Team.findById(parentTeam);
+        if (!parent) {
+          return res.status(400).json({ error: 'Parent team not found' });
+        }
+      }
       
       await team.save();
       
@@ -218,7 +245,8 @@ const teamController = {
       const team = await Team.findById(req.params.id)
         .populate('teamAdmins', 'name email role')
         .populate('members', 'name email role')
-        .populate('createdBy', 'name email');
+        .populate('createdBy', 'name email')
+        .populate('parentTeam', 'name _id');
 
       if (!team) {
         return res.status(404).json({ error: 'Team not found' });
@@ -232,8 +260,17 @@ const teamController = {
       if (!hasAccess) {
         return res.status(403).json({ error: 'Not authorized to view this team' });
       }
+      
+      // Find child teams
+      const childTeams = await Team.find({ parentTeam: team._id })
+        .select('name _id')
+        .lean();
+      
+      // Convert to plain object so we can add the childTeams
+      const teamObj = team.toObject();
+      teamObj.childTeams = childTeams;
 
-      res.json(team);
+      res.json(teamObj);
     } catch (error) {
       console.error('Error fetching team:', error);
       res.status(500).json({ error: 'Failed to fetch team' });
@@ -242,7 +279,7 @@ const teamController = {
 
   async updateTeam(req, res) {
     try {
-      const { name, description, domains } = req.body;
+      const { name, description, domains, parentTeam } = req.body;
       const team = await Team.findById(req.params.id);
 
       if (!team) {
@@ -253,16 +290,62 @@ const teamController = {
       if (name) team.name = name;
       if (description) team.description = description;
       if (domains) team.domains = domains;
+      
+      // Handle parent team
+      if (parentTeam !== undefined) {
+        // If null, remove parent
+        if (parentTeam === null) {
+          team.parentTeam = null;
+        } 
+        // If not null, verify parent exists
+        else if (parentTeam) {
+          // Prevent circular references
+          if (parentTeam.toString() === team._id.toString()) {
+            return res.status(400).json({ error: 'Team cannot be its own parent' });
+          }
+          
+          const parent = await Team.findById(parentTeam);
+          if (!parent) {
+            return res.status(400).json({ error: 'Parent team not found' });
+          }
+          
+          // Check for deeper circular references
+          let currentParent = parent;
+          const visitedTeams = new Set([team._id.toString()]);
+          
+          while (currentParent && currentParent.parentTeam) {
+            const parentId = currentParent.parentTeam.toString();
+            if (visitedTeams.has(parentId)) {
+              return res.status(400).json({ error: 'Circular parent reference detected' });
+            }
+            
+            visitedTeams.add(parentId);
+            currentParent = await Team.findById(parentId);
+          }
+          
+          team.parentTeam = parentTeam;
+        }
+      }
 
       await team.save();
 
-      // Populate team data
-      await team
+      // Fetch the updated team with populated fields
+      const updatedTeam = await Team.findById(team._id)
         .populate('teamAdmins', 'name email role')
         .populate('members', 'name email role')
-        .populate('createdBy', 'name email');
+        .populate('createdBy', 'name email')
+        .populate('parentTeam', 'name _id');
+      
+      // Find child teams
+      const childTeams = await Team.find({ parentTeam: team._id })
+        .select('name _id')
+        .lean();
+      
+      // Convert to plain object and add childTeams
+      const teamObj = updatedTeam.toObject();
+      teamObj.childTeams = childTeams;
 
-      res.json(team);
+      res.json(teamObj);
     } catch (error) {
       console.error('Error updating team:', error);
       res.status(500).json({ error: 'Failed to update team' });

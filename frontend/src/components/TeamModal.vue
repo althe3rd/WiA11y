@@ -23,6 +23,18 @@
         </div>
 
         <div class="form-group">
+          <label for="parentTeam">Parent Team (Optional)</label>
+          <TeamSelector 
+            id="parentTeam" 
+            v-model="formData.parentTeam"
+            :required="false"
+            showAllOption
+            allTeamsLabel="No Parent Team"
+          />
+          <small class="helper-text">Assigning a parent team allows members of the parent team to see data from this team.</small>
+        </div>
+
+        <div class="form-group">
           <label>Domains</label>
           <div v-for="(domain, index) in formData.domains" :key="index" class="domain-entry">
             <input 
@@ -61,13 +73,16 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { useStore } from 'vuex';
+import TeamSelector from './TeamSelector.vue';
 
 export default {
   name: 'TeamModal',
   components: {
-    FontAwesomeIcon
+    FontAwesomeIcon,
+    TeamSelector
   },
   props: {
     team: {
@@ -77,10 +92,21 @@ export default {
   },
   emits: ['close', 'save'],
   setup(props, { emit }) {
+    const store = useStore();
     const formData = ref({
       name: '',
       description: '',
-      domains: []
+      domains: [],
+      parentTeam: null
+    });
+
+    // Get all teams that can be used as parents
+    const availableParentTeams = computed(() => {
+      const allTeams = store.state.teams || [];
+      // Filter out the current team (can't be its own parent)
+      return props.team 
+        ? allTeams.filter(t => t._id !== props.team._id)
+        : allTeams;
     });
 
     const addDomain = () => {
@@ -95,7 +121,8 @@ export default {
       emit('save', {
         name: formData.value.name,
         description: formData.value.description,
-        domains: formData.value.domains.filter(d => d.domain.trim())
+        domains: formData.value.domains.filter(d => d.domain.trim()),
+        parentTeam: formData.value.parentTeam
       });
     };
 
@@ -106,13 +133,15 @@ export default {
           description: props.team.description || '',
           domains: Array.isArray(props.team.domains) 
             ? [...props.team.domains]
-            : []
+            : [],
+          parentTeam: props.team.parentTeam?._id || null
         };
       } else {
         formData.value = {
           name: '',
           description: '',
-          domains: []
+          domains: [],
+          parentTeam: null
         };
       }
     });
@@ -121,7 +150,8 @@ export default {
       formData,
       addDomain,
       removeDomain,
-      handleSubmit
+      handleSubmit,
+      availableParentTeams
     };
   }
 };

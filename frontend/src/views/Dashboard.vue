@@ -12,12 +12,17 @@
     <div class="filters">
       <div class="filter-group">
         <label for="teamFilter">Team</label>
-        <select id="teamFilter" v-model="selectedTeam">
-          <option value="">All Teams</option>
-          <option v-for="team in availableTeams" :key="team._id" :value="team._id">
-            {{ team.name }}
-          </option>
-        </select>
+        <TeamSelector 
+          id="teamFilter"
+          v-model="selectedTeam"
+          :required="false"
+          showAllOption
+          allTeamsLabel="All Teams"
+        />
+        <div v-if="selectedTeam && hasChildTeams(selectedTeam)" class="filter-info">
+          <span class="info-icon">ℹ️</span>
+          Showing data from {{ getTeamName(selectedTeam) }} and all its sub-teams
+        </div>
       </div>
       
       <div class="filter-group">
@@ -63,6 +68,7 @@
 import { ref, computed, defineAsyncComponent } from 'vue'
 import { useStore } from 'vuex'
 import TeamStats from '../components/TeamStats.vue'
+import TeamSelector from '../components/TeamSelector.vue'
 // Use defineAsyncComponent to avoid circular dependencies
 const CrawlHistory = defineAsyncComponent(() => import('../components/CrawlHistory.vue'))
 const CrawlForm = defineAsyncComponent(() => import('../components/CrawlForm.vue'))
@@ -74,7 +80,8 @@ export default {
     TeamStats,
     CrawlHistory,
     CrawlForm,
-    QueueStatus
+    QueueStatus,
+    TeamSelector
   },
   setup() {
     const store = useStore()
@@ -111,6 +118,16 @@ export default {
       // Handle the loaded crawls
     }
     
+    const hasChildTeams = (teamId) => {
+      const allTeams = store.state.teams || [];
+      return allTeams.some(team => team.parentTeam && team.parentTeam._id === teamId);
+    }
+    
+    const getTeamName = (teamId) => {
+      const team = store.state.teams.find(t => t._id === teamId);
+      return team ? team.name : 'Selected Team';
+    }
+    
     return {
       userFirstName,
       selectedTeam,
@@ -122,7 +139,9 @@ export default {
       isLoading,
       errorMessage,
       crawlHistory,
-      handleCrawlsLoaded
+      handleCrawlsLoaded,
+      hasChildTeams,
+      getTeamName
     }
   }
 }
@@ -219,5 +238,18 @@ export default {
   border: 1px solid var(--border-color);
   border-radius: 4px;
   background: var(--card-background);
+}
+
+.filter-info {
+  margin-top: 5px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.info-icon {
+  font-size: 1rem;
 }
 </style> 

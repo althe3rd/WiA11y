@@ -10,6 +10,7 @@ const teamSchema = new mongoose.Schema({
     domain: String,
     notes: String
   }],
+  parentTeam: { type: mongoose.Schema.Types.ObjectId, ref: 'Team' },
   createdAt: { type: Date, default: Date.now }
 });
 
