@@ -167,6 +167,9 @@ export default {
   --dropdown-hover: var(--background-color);
   --chart-grid: #e1e4e8;
   --container-width: 1400px;
+  --secondary-button-bg: #6c757d;
+  --secondary-button-hover-bg: #5a6268;
+  --secondary-button-text: #ffffff;
 }
 
 * {

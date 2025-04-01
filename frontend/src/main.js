@@ -18,7 +18,8 @@ import {
   faTrash,
   faCalendar,
   faChartLine,
-  faEdit
+  faEdit,
+  faRedoAlt
 } from '@fortawesome/free-solid-svg-icons'
 
 /* Add icons to the library */
@@ -33,7 +34,8 @@ library.add(
   faTrash,
   faCalendar,
   faChartLine,
-  faEdit
+  faEdit,
+  faRedoAlt
 )
 
 // Create the Vue application

@@ -73,6 +73,10 @@
                     <font-awesome-icon icon="fa-chart-line" class="details-icon" />
                     View Details
                   </button>
+                  <button class="run-again-btn" @click="runAgain(crawl)" title="Run this scan again with the same settings">
+                    <font-awesome-icon icon="fa-redo-alt" class="run-again-icon" />
+                    Run Again
+                  </button>
                   <div v-if="crawl.status === 'queued'" class="queue-position">
                     Queue Position: {{ crawl.queuePosition }}
                   </div>
@@ -529,11 +533,42 @@ export default {
       }
     });
 
+    const runAgain = async (crawl) => {
+      try {
+        // Create a new crawl with the same settings
+        const crawlData = {
+          url: crawl.url,
+          domain: crawl.domain,
+          team: crawl.team._id || crawl.team,
+          depthLimit: crawl.depthLimit,
+          pageLimit: crawl.pageLimit,
+          crawlRate: crawl.crawlRate,
+          wcagVersion: crawl.wcagVersion,
+          wcagLevel: crawl.wcagLevel
+        };
+        
+        console.log('Running scan again with settings:', crawlData);
+        
+        const result = await api.post('/api/crawls', crawlData);
+        
+        if (result?.data) {
+          // Show success notification
+          alert('Scan added to queue successfully');
+          // Refresh the crawl list to show the new queued scan
+          fetchCrawls();
+        }
+      } catch (error) {
+        console.error('Failed to run scan again:', error);
+        alert(error.response?.data?.error || 'Failed to run scan again');
+      }
+    };
+
     return {
       crawls,
       pollInterval,
       expandedDomains,
       viewDetails,
+      runAgain,
       domainMetadata,
       showMetadataModal,
       editingMetadata,
@@ -1463,5 +1498,32 @@ textarea {
 .save-btn {
   background: var(--primary-color);
   color: white;
+}
+
+.run-again-btn {
+  display: flex;
+  align-items: center;
+  background-color: var(--secondary-button-bg);
+  color: var(--secondary-button-text);
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  margin-left: 8px;
+}
+
+.run-again-btn:hover {
+  background-color: var(--secondary-button-hover-bg);
+  transform: translateY(-1px);
+}
+
+.run-again-btn:active {
+  transform: translateY(0);
+}
+
+.run-again-icon {
+  margin-right: 5px;
 }
 </style> 
