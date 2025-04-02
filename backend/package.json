@@ -1,6 +1,6 @@
 {
   "name": "accessibility-crawler-backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Backend for accessibility crawler",
   "main": "src/index.js",
   "scripts": {
