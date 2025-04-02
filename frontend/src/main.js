@@ -22,7 +22,15 @@ import {
   faRedoAlt,
   faUsers,
   faChevronRight,
-  faChevronDown
+  faChevronDown,
+  // Add icons for notification system
+  faTimes,
+  faCheckCircle,
+  faExclamationCircle,
+  faExclamationTriangle,
+  faInfoCircle,
+  faQuestionCircle,
+  faBell
 } from '@fortawesome/free-solid-svg-icons'
 
 /* Add icons to the library */
@@ -41,7 +49,15 @@ library.add(
   faRedoAlt,
   faUsers,
   faChevronRight,
-  faChevronDown
+  faChevronDown,
+  // Add notification icons
+  faTimes,
+  faCheckCircle,
+  faExclamationCircle,
+  faExclamationTriangle,
+  faInfoCircle,
+  faQuestionCircle,
+  faBell
 )
 
 // Create the Vue application

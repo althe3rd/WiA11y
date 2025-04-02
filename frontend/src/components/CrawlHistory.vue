@@ -1,5 +1,13 @@
 <template>
   <div class="crawl-history">
+    <div class="crawl-history-header">
+      <h2>Scan History</h2>
+      <div class="export-controls">
+        <button @click="exportToCsv" class="export-button">
+          <i class="fas fa-file-export"></i> Export as CSV
+        </button>
+      </div>
+    </div>
     <div class="sort-controls">
       <label for="sortBy">Sort by:</label>
       <select id="sortBy" v-model="sortBy" class="sort-select">
@@ -190,18 +198,53 @@
           ></textarea>
         </div>
         <div class="form-group">
-          <label class="checkbox-label">
+          <div class="checkbox-wrapper">
             <input 
               type="checkbox" 
+              id="isArchived" 
               v-model="editingMetadata.isArchived"
-            >
-            Mark as Archived
-          </label>
-          <p class="help-text">Archived domains will not be included in team statistics</p>
+            />
+            <label for="isArchived">Archive Domain</label>
+          </div>
+          <p class="help-text">Archiving a domain will hide it from the dashboard by default</p>
         </div>
         <div class="modal-actions">
-          <button type="button" @click="showMetadataModal = false" class="cancel-btn">Cancel</button>
-          <button type="submit" class="save-btn">Save</button>
+          <button type="button" class="cancel-btn" @click="showMetadataModal = false">Cancel</button>
+          <button type="submit" class="save-btn">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Export CSV Modal -->
+  <div v-if="showExportModal" class="modal-overlay" @click.self="showExportModal = false">
+    <div class="modal-content">
+      <h3>Export Scan Data</h3>
+      <form @submit.prevent="performExport">
+        <div class="form-group">
+          <label for="exportDateRange">Date Range</label>
+          <select id="exportDateRange" v-model="exportOptions.dateRange" class="form-select">
+            <option value="all">All Time</option>
+            <option value="week">Last 7 Days</option>
+            <option value="month">Last 30 Days</option>
+            <option value="quarter">Last 90 Days</option>
+            <option value="sixMonths">Last 6 Months</option>
+            <option value="year">Last Year</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="exportTeam">Team</label>
+          <TeamSelector 
+            id="exportTeam" 
+            v-model="exportOptions.team" 
+            :required="false"
+            :showAllOption="true"
+            allTeamsLabel="All Teams"
+          />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="cancel-btn" @click="showExportModal = false">Cancel</button>
+          <button type="submit" class="save-btn">Export CSV</button>
         </div>
       </form>
     </div>
@@ -219,6 +262,8 @@ import RadialProgress from './RadialProgress.vue';
 import api from '../api/axios';
 import { calculateScore } from '../utils/scoreCalculator';
 import store from '../store';
+import TeamSelector from './TeamSelector.vue';
+import notify from '../utils/notify';
 
 export default {
   name: 'CrawlHistory',
@@ -240,7 +285,8 @@ export default {
     AccessibilityTrendGraph,
     LoadingSpinner,
     CrawlProgress,
-    RadialProgress
+    RadialProgress,
+    TeamSelector
   },
   setup(props, { emit }) {
     const router = useRouter();
@@ -250,11 +296,22 @@ export default {
     const domainMetadata = ref({});
     const showMetadataModal = ref(false);
     const editingMetadata = ref({
-      domain: '',
       notes: '',
       isArchived: false
     });
     const sortBy = ref('date');
+
+    // New export modal state
+    const showExportModal = ref(false);
+    const exportOptions = ref({
+      dateRange: 'all',
+      team: ''
+    });
+
+    // Access teams from store
+    const availableTeams = computed(() => {
+      return store.state.teams || [];
+    });
 
     const getLatestScore = (domainData) => {
       // Find the most recent crawl across all WCAG specifications
@@ -511,7 +568,6 @@ export default {
 
     const editDomainMetadata = (domain) => {
       editingMetadata.value = {
-        domain,
         notes: domainMetadata.value[domain]?.notes || '',
         isArchived: domainMetadata.value[domain]?.isArchived || false
       };
@@ -562,10 +618,12 @@ export default {
         // Refresh the crawls and metadata
         await fetchCrawls();
         await fetchDomainMetadata();
+        
+        notify.success('Domain settings saved successfully');
       } catch (error) {
         console.error('Error saving domain metadata:', error);
         const errorMessage = error.response?.data?.error || 'Failed to save domain settings. Please try again.';
-        alert(errorMessage);
+        notify.error(errorMessage);
       }
     };
 
@@ -598,14 +656,90 @@ export default {
         
         if (result?.data) {
           // Show success notification
-          alert('Scan added to queue successfully');
+          notify.success('Scan added to queue successfully');
           // Refresh the crawl list to show the new queued scan
           fetchCrawls();
         }
       } catch (error) {
         console.error('Failed to run scan again:', error);
-        alert(error.response?.data?.error || 'Failed to run scan again');
+        notify.error(error.response?.data?.error || 'Failed to run scan again');
       }
+    };
+
+    const exportToCsv = async () => {
+      // Show export options modal instead of immediate export
+      showExportModal.value = true;
+    };
+
+    const performExport = async () => {
+      try {
+        // Get the auth token
+        const token = localStorage.getItem('token');
+        if (!token) {
+          notify.error('You must be logged in to export data');
+          return;
+        }
+
+        // Build URL with query parameters based on export options
+        let params = {};
+        
+        // Add team filter if selected
+        if (exportOptions.value.team) {
+          params.team = exportOptions.value.team;
+        }
+        
+        // Add date range filter if selected
+        if (exportOptions.value.dateRange) {
+          params.dateRange = exportOptions.value.dateRange;
+        }
+        
+        // Add token to query params as well - the endpoint expects it here
+        const tokenValue = token.replace('Bearer ', '');
+        params.token = tokenValue;
+        
+        // Prepare axios request with proper authorization header
+        const config = {
+          headers: {
+            'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+            'Content-Type': 'text/csv'
+          },
+          responseType: 'blob',
+          params: params
+        };
+        
+        // Make the API request
+        let baseUrl;
+        if (process.env.VUE_APP_API_URL) {
+          baseUrl = `${process.env.VUE_APP_API_URL}/api/crawls/export/csv`;
+        } else {
+          baseUrl = '/api/crawls/export/csv';
+        }
+        
+        const response = await axios.get(baseUrl, config);
+        
+        // Create a blob URL and trigger download
+        const blob = new Blob([response.data], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `crawl-export-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        // Close the modal after export
+        showExportModal.value = false;
+        
+      } catch (error) {
+        console.error('Failed to export CSV:', error);
+        notify.error('Failed to export CSV. Please try again.');
+      }
+    };
+
+    const getWcagSpec = (crawl) => {
+      return `WCAG ${crawl.wcagVersion} Level ${crawl.wcagLevel}`;
     };
 
     return {
@@ -624,7 +758,13 @@ export default {
       calculateScore,
       sortBy,
       getLatestScore,
-      getTeamName
+      getTeamName,
+      exportToCsv,
+      getWcagSpec,
+      showExportModal,
+      exportOptions,
+      availableTeams,
+      performExport
     };
   },
   methods: {
@@ -640,9 +780,6 @@ export default {
         hour: 'numeric',
         minute: 'numeric'
       }).format(date);
-    },
-    getWcagSpec(crawl) {
-      return `WCAG ${crawl.wcagVersion} Level ${crawl.wcagLevel}`;
     },
     getCrawlSpeed(rate) {
       if (rate <= 10) return 'Slow';
@@ -661,9 +798,16 @@ export default {
     },
     async removeCrawl(crawlId) {
       try {
-        if (!confirm('Are you sure you want to delete this crawl?')) {
+        const confirmed = await notify.confirm('Are you sure you want to delete this crawl?', {
+          type: 'danger',
+          confirmText: 'Delete',
+          cancelText: 'Cancel'
+        });
+        
+        if (!confirmed) {
           return;
         }
+        
         const token = localStorage.getItem('token');
         await axios.delete(`${process.env.VUE_APP_API_URL}/api/crawls/${crawlId}`, {
           headers: {
@@ -672,16 +816,24 @@ export default {
         });
         // Remove from local state
         this.crawls = this.crawls.filter(c => c._id !== crawlId);
+        notify.success('Crawl deleted successfully');
       } catch (error) {
         console.error('Failed to remove crawl:', error);
-        alert(error.response?.data?.error || 'Failed to remove crawl');
+        notify.error(error.response?.data?.error || 'Failed to remove crawl');
       }
     },
     async cancelCrawl(crawlId) {
       try {
-        if (!confirm('Are you sure you want to cancel this crawl?')) {
+        const confirmed = await notify.confirm('Are you sure you want to cancel this crawl?', {
+          type: 'warning',
+          confirmText: 'Cancel Scan',
+          cancelText: 'Keep Running'
+        });
+        
+        if (!confirmed) {
           return;
         }
+        
         const token = localStorage.getItem('token');
         const response = await axios.post(`${process.env.VUE_APP_API_URL}/api/crawls/${crawlId}/cancel`, {}, {
           headers: {
@@ -693,9 +845,10 @@ export default {
         if (index !== -1) {
           this.crawls[index] = response.data;
         }
+        notify.success('Crawl cancelled successfully');
       } catch (error) {
         console.error('Failed to cancel crawl:', error);
-        alert(error.response?.data?.error || 'Failed to cancel crawl');
+        notify.error(error.response?.data?.error || 'Failed to cancel crawl');
       }
     },
     getScoreDifference(currentScore, previousScore) {
@@ -836,6 +989,36 @@ export default {
 <style scoped>
 .crawl-history {
   /* Keep existing styles */
+}
+
+.crawl-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.export-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.export-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background-color: var(--secondary-button-bg, #6c757d);
+  color: var(--secondary-button-text, #ffffff);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.export-button:hover {
+  background-color: var(--secondary-button-hover-bg, #5a6268);
 }
 
 .sort-controls {
@@ -1479,11 +1662,10 @@ export default {
   font-size: 0.9em;
 }
 
-.checkbox-label {
+.checkbox-wrapper {
   display: flex;
   align-items: center;
   gap: 8px;
-  cursor: pointer;
 }
 
 .help-text {
@@ -1515,67 +1697,65 @@ export default {
   max-width: 500px;
 }
 
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: var(--heading-color);
 }
 
 .form-group {
   margin-bottom: 20px;
 }
 
-textarea {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--input-background);
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
   color: var(--text-color);
 }
 
-.cancel-btn, .save-btn {
-  padding: 8px 16px;
+.form-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  border: none;
-  cursor: pointer;
+  background-color: var(--input-background);
+  color: var(--text-color);
+  font-size: 14px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
 }
 
 .cancel-btn {
-  background: var(--background-color);
-  color: var(--text-color);
-}
-
-.save-btn {
-  background: var(--primary-color);
-  color: white;
-}
-
-.run-again-btn {
-  display: flex;
-  align-items: center;
+  padding: 8px 16px;
   background-color: var(--secondary-button-bg);
   color: var(--secondary-button-text);
   border: none;
   border-radius: 4px;
-  padding: 6px 12px;
-  font-size: 0.85rem;
   cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
-  margin-left: 8px;
+  font-size: 14px;
 }
 
-.run-again-btn:hover {
+.save-btn {
+  padding: 8px 16px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.save-btn:hover {
+  background-color: var(--primary-hover);
+}
+
+.cancel-btn:hover {
   background-color: var(--secondary-button-hover-bg);
-  transform: translateY(-1px);
-}
-
-.run-again-btn:active {
-  transform: translateY(0);
-}
-
-.run-again-icon {
-  margin-right: 5px;
 }
 </style> 

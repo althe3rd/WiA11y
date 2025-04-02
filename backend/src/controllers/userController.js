@@ -143,10 +143,15 @@ const userController = {
   async promoteUser(req, res) {
     try {
       const { userId } = req.params;
-      const { role } = req.body;
+      const { role, userType } = req.body;
       
       if (!['network_admin', 'admin', 'team_admin', 'team_member'].includes(role)) {
         return res.status(400).json({ error: 'Invalid role' });
+      }
+
+      // Validate userType if provided
+      if (userType && !['technical', 'content'].includes(userType)) {
+        return res.status(400).json({ error: 'Invalid user type' });
       }
 
       // Only network admins can create other network admins
@@ -154,9 +159,20 @@ const userController = {
         return res.status(403).json({ error: 'Only network admins can promote to network admin' });
       }
 
+      // Only network admins or team admins can change user type
+      if (userType && !['network_admin', 'team_admin'].includes(req.user.role)) {
+        return res.status(403).json({ error: 'Only network admins or team admins can change user type' });
+      }
+
+      // Build the update object
+      const updateData = { role };
+      if (userType) {
+        updateData.userType = userType;
+      }
+
       const user = await User.findByIdAndUpdate(
         userId,
-        { role },
+        updateData,
         { new: true }
       ).select('-password');
 
@@ -228,17 +244,30 @@ const userController = {
 
   async updateUser(req, res) {
     try {
-      // Only network admins can update users
-      if (req.user.role !== 'network_admin') {
+      // Only network admins or team admins can update users
+      if (!['network_admin', 'team_admin'].includes(req.user.role)) {
         return res.status(403).json({ error: 'Not authorized to update users' });
       }
 
       const { userId } = req.params;
-      const { name, password, role, teams } = req.body;
+      const { name, password, role, teams, userType } = req.body;
+
+      // Validate userType if provided
+      if (userType && !['technical', 'content'].includes(userType)) {
+        return res.status(400).json({ error: 'Invalid user type' });
+      }
+
+      // Only network admins can set role to network_admin
+      if (role === 'network_admin' && req.user.role !== 'network_admin') {
+        return res.status(403).json({ error: 'Only network admins can set network admin role' });
+      }
 
       const updateData = { name, role, teams };
       if (password) {
         updateData.password = await bcrypt.hash(password, 10);
+      }
+      if (userType) {
+        updateData.userType = userType;
       }
 
       const user = await User.findByIdAndUpdate(

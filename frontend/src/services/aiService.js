@@ -1,4 +1,5 @@
 import api from '../api/axios';
+import store from '../store';
 
 /**
  * Service for handling AI-related functionality
@@ -22,7 +23,17 @@ class AIService {
     });
     
     try {
-      const response = await api.post('/api/violations/remediation-suggestion', violationData);
+      // Get the current user's type
+      const userType = store.state.user?.userType || 'technical';
+      console.log('User type for suggestion request:', userType);
+      
+      // Add userType to the request data
+      const requestData = {
+        ...violationData,
+        userType
+      };
+      
+      const response = await api.post('/api/violations/remediation-suggestion', requestData);
       
       console.log('aiService received response:', {
         status: response.status,

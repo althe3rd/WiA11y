@@ -54,7 +54,8 @@
                       <span class="loading-spinner"></span> Generating suggestion...
                     </span>
                     <span v-else>
-                      <i class="fas fa-robot"></i> Experimental: Get AI Suggestion
+                      <i class="fas fa-robot"></i> 
+                      {{ isContentUser ? 'Get WordPress Fix Suggestion' : 'Get Code Fix Suggestion' }}
                     </span>
                   </button>
                   
@@ -66,7 +67,10 @@
                   
                   <!-- AI Suggestion Result -->
                   <div v-if="getNodeSuggestion(node)" class="ai-suggestion-result">
-                    <h5><i class="fas fa-lightbulb"></i> AI Suggested Fix:</h5>
+                    <h5>
+                      <i class="fas fa-lightbulb"></i> 
+                      {{ isContentUser ? 'WordPress Dashboard Fix:' : 'AI Suggested Code Fix:' }}
+                    </h5>
                     <div class="suggestion-content" v-html="getNodeSuggestion(node)"></div>
                   </div>
                   
@@ -115,6 +119,7 @@ import { useRoute } from 'vue-router'
 import axios from 'axios'
 import CodeBlock from '../components/CodeBlock.vue'
 import aiService from '../services/aiService'
+import store from '../store'
 
 // Cache utility for AI suggestions
 const AI_SUGGESTION_CACHE_KEY = 'wia11y_ai_suggestions_cache';
@@ -450,7 +455,7 @@ export default {
     
     // Add this new method to format AI suggestions
     const formatAISuggestion = (suggestion) => {
-      if (!suggestion) return '';
+      if (!suggestion) return null;
       
       // Check if this is an error message
       if (suggestion.startsWith('Error:')) {
@@ -550,7 +555,21 @@ export default {
         }
       );
       
-      return formattedSuggestion;
+      // Add introduction based on user type
+      let introMessage = '';
+      if (isContentUser.value) {
+        introMessage = `<div class="suggestion-intro content-user">
+          <strong>WordPress Dashboard Instructions:</strong> 
+          The following steps will help you fix this accessibility issue using your WordPress admin dashboard without editing code.
+        </div>`;
+      } else {
+        introMessage = `<div class="suggestion-intro technical-user">
+          <strong>Technical Implementation:</strong> 
+          The following code changes will help fix this accessibility issue.
+        </div>`;
+      }
+      
+      return `${introMessage}${formattedSuggestion}`;
     };
 
     const getNodeSuggestion = (node) => {
@@ -638,6 +657,10 @@ export default {
       event.preventDefault()
     }
 
+    const isContentUser = computed(() => {
+      return store.state.user?.userType === 'content';
+    });
+
     onMounted(() => {
       // Refresh token value on mount
       token.value = localStorage.getItem('token')
@@ -665,7 +688,8 @@ export default {
       previewContainer,
       sidebar,
       sidebarWidth,
-      startResize
+      startResize,
+      isContentUser
     }
   }
 }
@@ -1125,5 +1149,22 @@ export default {
   color: #dc3545;
   font-weight: 500;
   display: block;
+}
+
+/* Add CSS for the suggestion intro */
+.suggestion-intro {
+  margin-bottom: 15px;
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+
+.suggestion-intro.content-user {
+  background-color: #FBE9E7;
+  border-left: 4px solid #FF5722;
+}
+
+.suggestion-intro.technical-user {
+  background-color: #E8EAF6;
+  border-left: 4px solid #3F51B5;
 }
 </style> 

@@ -109,7 +109,11 @@ export default createStore({
           try {
             const response = await api.get('/api/auth/me');
             console.log('Session restored successfully:', response.data);
+            console.log('User data includes userType:', response.data.userType);
             commit('setUser', response.data);
+            
+            // Update stored user with latest data from server
+            localStorage.setItem('user', JSON.stringify(response.data));
           } catch (error) {
             console.error('Failed to restore session:', error);
             // Clear invalid session
@@ -129,7 +133,7 @@ export default createStore({
         const response = await api.post('/api/users/login', credentials);
         const { token, user } = response.data;
         
-        console.log('Login successful, storing session...');
+        console.log('Login successful, storing session...', user);
         
         // Store in localStorage
         localStorage.setItem('token', token);

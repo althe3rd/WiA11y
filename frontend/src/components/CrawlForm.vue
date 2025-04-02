@@ -136,6 +136,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
 import api from '../api/axios';  // Use the configured instance
 import TeamSelector from './TeamSelector.vue';
+import notify from '../utils/notify';
 
 export default {
   name: 'CrawlForm',
@@ -265,7 +266,7 @@ export default {
         };
       } catch (error) {
         console.error('Failed to create crawl:', error);
-        alert(error.message || error.error || 'Failed to create crawl');
+        notify.error(error.message || error.error || 'Failed to create crawl');
       } finally {
         isSubmitting.value = false;
         currentCrawlId.value = null;
@@ -304,7 +305,7 @@ export default {
         };
       } catch (error) {
         console.error('Failed to cancel crawl:', error);
-        alert(error.response?.data?.error || error.message || 'Failed to cancel crawl');
+        notify.error(error.response?.data?.error || error.message || 'Failed to cancel crawl');
       }
     };
 
@@ -507,7 +508,7 @@ button.options-toggle-btn:hover:not(:disabled) {
 }
 
 .submit-button:disabled {
-  opacity: 0.6;
+  opacity: 0.9;
   cursor: not-allowed;
 }
 

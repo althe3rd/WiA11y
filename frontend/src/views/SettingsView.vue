@@ -229,6 +229,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import LogoDefault from '../components/Logo-default.vue'
 import api from '../api/axios'
+import notify from '../utils/notify'
 
 export default {
   name: 'SettingsView',
@@ -320,9 +321,16 @@ export default {
 
     const removeLogo = async () => {
       try {
-        if (!confirm('Are you sure you want to remove the logo?')) {
+        const confirmed = await notify.confirm('Are you sure you want to remove the logo?', {
+          type: 'warning',
+          confirmText: 'Remove Logo',
+          cancelText: 'Cancel'
+        });
+        
+        if (!confirmed) {
           return;
         }
+        
         await store.dispatch('settings/removeLogo');
       } catch (error) {
         alert('Failed to remove logo. Please try again.');

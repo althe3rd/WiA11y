@@ -20,6 +20,7 @@ class AIService {
    * @param {Array} violationData.node.any - Any checks that failed
    * @param {Array} violationData.node.all - All checks that failed
    * @param {Array} violationData.node.none - None checks that failed
+   * @param {string} [violationData.userType='technical'] - The user type (technical or content)
    * @returns {Promise<string>} - The remediation suggestion
    */
   async generateRemediationSuggestion(violationData) {
@@ -34,6 +35,10 @@ class AIService {
       console.log('Calling OpenAI API with prompt:', prompt);
       console.log('Using API key starting with:', this.apiKey.substring(0, 10) + '...');
       
+      const systemMessage = violationData.userType === 'content' 
+        ? 'You are an accessibility expert that provides specific, actionable remediation suggestions for web accessibility violations. Your suggestions should focus on how to fix issues using the WordPress dashboard interface rather than coding. Explain where to click in the WordPress admin and what settings to change. Avoid suggesting HTML or CSS changes.'
+        : 'You are an accessibility expert that provides specific, actionable remediation suggestions for web accessibility violations. Your suggestions should be concise, technically accurate, and directly address the specific violation in the provided HTML.';
+        
       const response = await axios.post(
         this.apiUrl,
         {
@@ -41,7 +46,7 @@ class AIService {
           messages: [
             {
               role: 'system',
-              content: 'You are an accessibility expert that provides specific, actionable remediation suggestions for web accessibility violations. Your suggestions should be concise, technically accurate, and directly address the specific violation in the provided HTML.'
+              content: systemMessage
             },
             {
               role: 'user',
@@ -86,7 +91,7 @@ class AIService {
    * @returns {string} - The prompt for the OpenAI API
    */
   createPrompt(violationData) {
-    const { id, help, description, node } = violationData;
+    const { id, help, description, node, userType = 'technical' } = violationData;
     
     // Extract relevant check information
     const checkDetails = [];
@@ -100,7 +105,35 @@ class AIService {
       checkDetails.push(`None checks that failed: ${node.none.map(check => check.message || check.id).join(', ')}`);
     }
 
-    return `
+    // Different prompts based on user type
+    if (userType === 'content') {
+      return `
+I need a specific remediation suggestion for the following accessibility violation in a WordPress website:
+
+Rule ID: ${id}
+Help Text: ${help}
+Description: ${description}
+CSS Selector: ${node.target}
+
+HTML with the violation:
+\`\`\`html
+${node.html}
+\`\`\`
+
+${checkDetails.join('\n')}
+
+Please provide a specific, actionable remediation suggestion that focuses on how to fix this issue using the WordPress dashboard interface, NOT by editing code directly. Explain where to click in the WordPress admin panel and what settings to change. Assume the user is non-technical and doesn't know HTML or CSS.
+
+Include step-by-step instructions like:
+1. Go to the WordPress dashboard
+2. Navigate to specific menus or settings
+3. Explain what to change and why
+
+DO NOT suggest code changes or anything requiring editing HTML, CSS, or PHP directly.
+`;
+    } else {
+      // Default technical prompt
+      return `
 I need a specific remediation suggestion for the following accessibility violation:
 
 Rule ID: ${id}
@@ -117,6 +150,7 @@ ${checkDetails.join('\n')}
 
 Please provide a specific, actionable remediation suggestion that directly addresses this violation. Include example code showing how to fix the issue. Be concise but thorough.
 `;
+    }
   }
 }
 

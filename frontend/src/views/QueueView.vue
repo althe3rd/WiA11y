@@ -110,6 +110,7 @@
 import { ref, onMounted, onUnmounted, computed, onBeforeUnmount } from 'vue'
 import { useStore } from 'vuex'
 import api from '../api/axios'
+import notify from '../utils/notify'
 
 export default {
   name: 'QueueView',
@@ -179,9 +180,16 @@ export default {
 
     const cancelScan = async (crawlId) => {
       try {
-        if (!confirm('Are you sure you want to cancel this scan?')) {
+        const confirmed = await notify.confirm('Are you sure you want to cancel this scan?', {
+          type: 'warning',
+          confirmText: 'Cancel Scan',
+          cancelText: 'Keep in Queue'
+        });
+        
+        if (!confirmed) {
           return;
         }
+        
         await api.post(`/api/crawls/${crawlId}/cancel`);
         // Refresh the queue immediately after cancellation
         await fetchQueue();

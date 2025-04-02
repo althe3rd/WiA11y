@@ -22,6 +22,7 @@
         <div class="user-info">Name</div>
         <div class="user-email">Email</div>
         <div class="user-role">Role</div>
+        <div class="user-type">Type</div>
         <div class="user-teams">Teams</div>
         <div class="user-actions">Actions</div>
       </div>
@@ -35,6 +36,11 @@
         <div class="user-role">
           <span :class="['role-badge', getRoleBadgeClass(user.role)]">
             {{ formatRole(user.role) }}
+          </span>
+        </div>
+        <div class="user-type">
+          <span :class="['type-badge', user.userType === 'technical' ? 'type-technical' : 'type-content']">
+            {{ user.userType || 'Technical' }}
           </span>
         </div>
         <div class="user-teams">
@@ -114,6 +120,17 @@
             </select>
           </div>
 
+          <div class="form-group">
+            <label for="userType">User Type</label>
+            <select id="userType" v-model="userForm.userType" required>
+              <option value="technical">Technical (HTML/CSS code fixes)</option>
+              <option value="content">Content (WordPress dashboard fixes)</option>
+            </select>
+            <small class="helper-text">
+              Technical users will see HTML/CSS code-level fixes. Content users will see WordPress dashboard-based fixes.
+            </small>
+          </div>
+
           <div class="modal-actions">
             <button type="button" @click="closeModal" class="cancel-btn">
               Cancel
@@ -144,7 +161,8 @@ export default {
         name: '',
         email: '',
         password: '',
-        role: 'team_member'
+        role: 'team_member',
+        userType: 'technical'
       }
     }
   },
@@ -155,7 +173,8 @@ export default {
         name: '',
         email: '',
         password: '',
-        role: 'team_member'
+        role: 'team_member',
+        userType: 'technical'
       };
       this.showModal = true;
     },
@@ -188,7 +207,8 @@ export default {
         name: user.name,
         email: user.email,
         password: '',
-        role: user.role
+        role: user.role,
+        userType: user.userType || 'technical'
       };
       this.showModal = true;
     },
@@ -199,7 +219,8 @@ export default {
         name: '',
         email: '',
         password: '',
-        role: 'team_member'
+        role: 'team_member',
+        userType: 'technical'
       };
     },
     async submitUser() {
@@ -208,7 +229,8 @@ export default {
           // Update existing user
           const updateData = {
             name: this.userForm.name,
-            role: this.userForm.role
+            role: this.userForm.role,
+            userType: this.userForm.userType
           };
           if (this.userForm.password) {
             updateData.password = this.userForm.password;
@@ -260,7 +282,8 @@ export default {
       return this.users.filter(user => 
         user.name.toLowerCase().includes(query) ||
         user.email.toLowerCase().includes(query) ||
-        this.formatRole(user.role).toLowerCase().includes(query)
+        this.formatRole(user.role).toLowerCase().includes(query) ||
+        (user.userType && user.userType.toLowerCase().includes(query))
       );
     }
   }
@@ -310,7 +333,7 @@ export default {
 
 .user-row {
   display: grid;
-  grid-template-columns: 2fr 2.5fr 1.5fr 2fr 1.5fr;
+  grid-template-columns: 1.75fr 2fr 1.25fr 1.25fr 1.75fr 1.5fr;
   padding: 16px;
   align-items: center;
   border-bottom: 1px solid var(--border-color);
@@ -520,5 +543,22 @@ input, select {
 
 .search-input::placeholder {
   color: var(--text-muted);
+}
+
+.type-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.type-technical {
+  background: #E8EAF6;
+  color: #3F51B5;
+}
+
+.type-content {
+  background: #FBE9E7;
+  color: #FF5722;
 }
 </style> 

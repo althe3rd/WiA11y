@@ -4,8 +4,13 @@
       <div class="dashboard-header-text">
         <h1>Dashboard</h1>
         <h2>Welcome {{ userFirstName }}</h2>
-    </div>
-      <router-link to="/scans" class="view-all-link">View All Scanned Sites →</router-link>
+      </div>
+      <div class="header-actions">
+        <button @click="exportFiltered" class="export-button">
+          <i class="fas fa-file-export"></i> Export as CSV
+        </button>
+        <router-link to="/scans" class="view-all-link">View All Scanned Sites →</router-link>
+      </div>
     </div>
     
     <h2>Filters</h2>
@@ -128,6 +133,12 @@ export default {
       return team ? team.name : 'Selected Team';
     }
     
+    const exportFiltered = () => {
+      if (crawlHistory.value && typeof crawlHistory.value.exportToCsv === 'function') {
+        crawlHistory.value.exportToCsv();
+      }
+    };
+    
     return {
       userFirstName,
       selectedTeam,
@@ -141,7 +152,8 @@ export default {
       crawlHistory,
       handleCrawlsLoaded,
       hasChildTeams,
-      getTeamName
+      getTeamName,
+      exportFiltered
     }
   }
 }
@@ -156,6 +168,33 @@ export default {
 
 .dashboard-header {
   margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.export-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background-color: var(--secondary-button-bg, #6c757d);
+  color: var(--secondary-button-text, #ffffff);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.export-button:hover {
+  background-color: var(--secondary-button-hover-bg, #5a6268);
 }
 
 .dashboard-content {

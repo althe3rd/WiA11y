@@ -75,12 +75,18 @@ router.post('/remediation-suggestion', async (req, res) => {
       nodeHtmlLength: node?.html?.length
     });
 
+    // Get the user's type if available
+    const userType = req.user?.userType || 'technical';
+
+    console.log('User type for remediation suggestion:', userType);
+
     // Generate remediation suggestion using AI
     const suggestion = await aiService.generateRemediationSuggestion({
       id: id || 'region', // If id is missing, use 'region' as fallback (based on the help text)
       help,
       description,
-      node
+      node,
+      userType // Pass the user type to the AI service
     });
 
     console.log('Sending remediation suggestion response:', {

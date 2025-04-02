@@ -22,6 +22,11 @@ const userSchema = new mongoose.Schema({
     enum: ['network_admin', 'admin', 'team_admin', 'team_member', 'user'],
     default: 'team_member'
   },
+  userType: {
+    type: String,
+    enum: ['technical', 'content'],
+    default: 'technical'
+  },
   teams: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Team'

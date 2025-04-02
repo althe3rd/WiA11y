@@ -38,6 +38,9 @@
     </nav>
     <CrawlForm v-if="isAuthenticated && !hasPendingRequest" />
     <router-view></router-view>
+    
+    <!-- Add notification container -->
+    <NotificationContainer />
   </div>
 </template> 
 
@@ -47,6 +50,7 @@ import CrawlForm from './components/CrawlForm.vue';
 import QueueStatus from './components/QueueStatus.vue';
 import UserManagement from '@/components/UserManagement.vue'
 import DarkModeToggle from './components/DarkModeToggle.vue'
+import NotificationContainer from './components/NotificationContainer.vue';
 import { computed, onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
@@ -59,7 +63,8 @@ export default {
     CrawlForm,
     QueueStatus,
     UserManagement,
-    DarkModeToggle
+    DarkModeToggle,
+    NotificationContainer
   },
   setup() {
     const store = useStore();
@@ -155,7 +160,7 @@ export default {
   --primary-color: #388fec;
   --primary-hover: #7029d8;
   --secondary-color: #FF006E;
-  --text-color: var(--text-color);
+  --text-color: #333333;
   --text-muted: #666666;
   --background-color: #f5f7fa;
   --card-background: #ffffff;
@@ -170,6 +175,7 @@ export default {
   --secondary-button-bg: #6c757d;
   --secondary-button-hover-bg: #5a6268;
   --secondary-button-text: #ffffff;
+  --hover-background: #f0f0f0;
 }
 
 * {
@@ -403,5 +409,48 @@ label {
 .status-badge.error {
   background-color: var(--error-background);
   color: #dc3545;
+}
+
+/* Add responsive styles for nav elements */
+@media (max-width: 768px) {
+  .main-nav {
+    padding: 0.5rem 1rem;
+    flex-wrap: wrap;
+  }
+  
+  .nav-left {
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }
+  
+  .nav-right {
+    gap: 10px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+  
+  .nav-link {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+  }
+  
+  .button-primary {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+  }
+  
+  .main-nav .user-info {
+    padding: 0.1rem 0.5rem;
+  }
+  
+  .user-name {
+    font-size: 0.9rem;
+  }
+  
+  .role-tag {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+  }
 }
 </style> 

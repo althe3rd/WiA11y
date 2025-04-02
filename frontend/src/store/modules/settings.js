@@ -265,7 +265,7 @@ function updateCSSVariables(settings) {
     root.style.setProperty('--error-background', 'rgba(220, 53, 69, 0.2)')
   } else {
     // Light mode colors
-    root.style.setProperty('--text-color', 'var(--text-color)')
+    root.style.setProperty('--text-color', '#333333')
     root.style.setProperty('--text-muted', '#666666')
     root.style.setProperty('--background-color', '#f5f7fa')
     root.style.setProperty('--card-background', '#ffffff')
@@ -275,7 +275,7 @@ function updateCSSVariables(settings) {
     root.style.setProperty('--input-background', '#ffffff')
     root.style.setProperty('--input-border', '#ced4da')
     root.style.setProperty('--dropdown-background', '#ffffff')
-    root.style.setProperty('--dropdown-hover', 'var(--background-color)')
+    root.style.setProperty('--dropdown-hover', '#f5f7fa')
     root.style.setProperty('--chart-grid', '#e1e4e8')
     root.style.setProperty('--success-background', 'rgba(40, 167, 69, 0.1)')
     root.style.setProperty('--warning-background', 'rgba(255, 193, 7, 0.1)')

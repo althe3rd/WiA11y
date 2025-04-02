@@ -1,5 +1,19 @@
 <template>
   <div class="marketing-home">
+    <!-- Navigation -->
+    <nav class="navbar">
+      <div class="container">
+        <div class="logo">
+          <Logo />
+        </div>
+        <div class="nav-right">
+          <DarkModeToggle />
+          <router-link to="/login" class="login-button">Login</router-link>
+          <router-link to="/register" class="register-button">Register</router-link>
+        </div>
+      </div>
+    </nav>
+
     <!-- Hero Section -->
     <section class="hero">
       <div class="hero-content">
@@ -111,27 +125,32 @@
 
 <script>
 import LogoDefault from '@/components/Logo-default.vue'
+import DarkModeToggle from '@/components/DarkModeToggle.vue'
+import Logo from '@/components/Logo.vue'
 
 export default {
   name: 'MarketingHome',
   components: {
-    LogoDefault
+    LogoDefault,
+    DarkModeToggle,
+    Logo
   }
 }
 </script>
 
 <style scoped>
 .marketing-home {
-  background-color: #ffffff;
+  min-height: 100vh;
+  background-color: var(--background-color);
+  color: var(--text-color);
 }
 
 /* Hero Section */
 .hero {
-  background: linear-gradient(135deg, #fff 0%, #e9ecef 100%);
-  padding: 80px 20px;
-  min-height: 80vh;
-  display: flex;
-  align-items: center;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: white;
+  padding: 100px 20px;
+  text-align: center;
 }
 
 .hero-content {
@@ -183,11 +202,11 @@ export default {
 /* Features Section */
 .features {
   padding: 100px 20px;
-  background-color: #ffffff;
+  background-color: var(--background-color);
+  text-align: center;
 }
 
 .features h2 {
-  text-align: center;
   font-size: 2.5rem;
   margin-bottom: 60px;
   color: var(--text-color);
@@ -203,10 +222,10 @@ export default {
 
 .feature-card {
   padding: 30px;
-  background: #ffffff;
+  background: var(--card-background);
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, background-color 0.3s ease;
   text-align: center;
 }
 
@@ -227,7 +246,7 @@ export default {
 }
 
 .feature-card p {
-  color: #6c757d;
+  color: var(--text-muted);
   line-height: 1.6;
 }
 
@@ -276,7 +295,7 @@ export default {
 }
 
 .benefit-text p {
-  color: #6c757d;
+  color: var(--text-muted);
   line-height: 1.6;
 }
 
@@ -414,6 +433,75 @@ export default {
   .footer-links {
     flex-direction: column;
     gap: 15px;
+  }
+}
+
+/* Navbar */
+.navbar {
+  background-color: var(--nav-background);
+  padding: 10px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  transition: background-color 0.3s ease;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.login-button,
+.register-button {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.login-button {
+  background-color: transparent;
+  border: 2px solid var(--primary-color);
+  color: var(--text-color);
+}
+
+.login-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.register-button {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.register-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 768px) {
+  .nav-right {
+    gap: 10px;
   }
 }
 </style> 
