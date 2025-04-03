@@ -1,7 +1,7 @@
 <template>
   <transition name="confirm-fade">
     <div v-if="show" class="confirm-overlay" @click.self="onCancel">
-      <div class="confirm-dialog">
+      <div class="confirm-dialog" :data-type="type">
         <div class="confirm-header">
           <div class="confirm-icon">
             <font-awesome-icon :icon="icon" />
@@ -34,7 +34,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 
 export default {
   name: 'ConfirmDialog',
@@ -59,6 +59,7 @@ export default {
   },
   emits: ['confirm', 'cancel'],
   setup(props, { emit }) {
+    console.log('ConfirmDialog setup called with props:', props);
     const show = ref(false);
 
     const icon = computed(() => {
@@ -71,6 +72,7 @@ export default {
     });
 
     const onConfirm = () => {
+      console.log('ConfirmDialog: confirm button clicked');
       show.value = false;
       setTimeout(() => {
         emit('confirm');
@@ -78,14 +80,24 @@ export default {
     };
 
     const onCancel = () => {
+      console.log('ConfirmDialog: cancel button clicked');
       show.value = false;
       setTimeout(() => {
         emit('cancel');
       }, 300); // Wait for animation to finish
     };
 
+    // Watch for changes to the props to reset visibility
+    watch(() => props.message, (newVal) => {
+      console.log('ConfirmDialog: message changed to:', newVal);
+      if (newVal && !show.value) {
+        show.value = true;
+      }
+    });
+
     onMounted(() => {
       // Start animation after mount
+      console.log('ConfirmDialog mounted, showing dialog');
       show.value = true;
     });
 
@@ -162,19 +174,20 @@ export default {
   font-size: 16px;
   line-height: 1.5;
   color: var(--text-color, #333333);
-  margin-bottom: 24px;
+  margin: 16px 0 24px;
 }
 
 .confirm-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  margin-top: 20px;
 }
 
 .confirm-btn-cancel {
-  padding: 8px 16px;
+  padding: 10px 16px;
   border: 1px solid var(--border-color, #e0e0e0);
-  background-color: transparent;
+  background-color: #f5f5f5;
   color: var(--text-color, #333333);
   border-radius: 4px;
   cursor: pointer;
@@ -184,11 +197,11 @@ export default {
 }
 
 .confirm-btn-cancel:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: #e0e0e0;
 }
 
 .confirm-btn-confirm {
-  padding: 8px 16px;
+  padding: 10px 16px;
   border: none;
   background-color: var(--primary-color, #4caf50);
   color: white;
@@ -211,6 +224,11 @@ export default {
 .confirm-fade-enter-active,
 .confirm-fade-leave-active {
   transition: opacity 0.3s;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .confirm-fade-enter-from,

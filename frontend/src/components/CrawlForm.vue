@@ -320,6 +320,9 @@ export default {
         // Show success state
         showSuccess.value = true;
         
+        // Add notification for crawl start
+        notify.success('New scan started successfully! Added to the queue.');
+        
         // Reset form
         formData.value = {
           url: '',

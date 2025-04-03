@@ -55,6 +55,13 @@ export default {
     let timer = null;
     let progressTimer = null;
 
+    // Don't show this component if it's a confirmation type
+    // as those should be handled by ConfirmDialog
+    if (props.type === 'confirm') {
+      console.warn('Confirmation dialogs should use ConfirmDialog component, not Notification');
+      return { show: ref(false) };
+    }
+
     const icon = computed(() => {
       switch (props.type) {
         case 'success': return 'check-circle';

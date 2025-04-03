@@ -323,8 +323,8 @@ export default {
       try {
         const confirmed = await notify.confirm('Are you sure you want to remove the logo?', {
           type: 'warning',
-          confirmText: 'Remove Logo',
-          cancelText: 'Cancel'
+          confirmText: 'Yes, Remove Logo',
+          cancelText: 'No, Cancel'
         });
         
         if (!confirmed) {

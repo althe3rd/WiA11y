@@ -47,17 +47,20 @@ class NotificationService {
 
   // For confirm dialogs that need user interaction
   confirm(message, options = {}) {
+    console.log('Creating confirmation dialog:', message, options);
     return new Promise((resolve) => {
       // Create a unique ID for this confirmation
       const id = this.counter++;
       
       // Create callbacks for confirm and cancel actions
       const onConfirm = () => {
+        console.log('Confirmation dialog confirmed');
         this.close(id);
         resolve(true);
       };
       
       const onCancel = () => {
+        console.log('Confirmation dialog cancelled');
         this.close(id);
         resolve(false);
       };
@@ -70,10 +73,21 @@ class NotificationService {
         autoClose: false,
         onConfirm,
         onCancel,
-        ...options
+        confirmText: options.confirmText || 'Yes',
+        cancelText: options.cancelText || 'No',
+        dialogType: options.type || 'warning'
       };
       
+      // Close any existing confirmation dialogs
+      const existingConfirmIndex = this.notifications.findIndex(n => n.type === 'confirm');
+      if (existingConfirmIndex !== -1) {
+        this.notifications.splice(existingConfirmIndex, 1);
+      }
+      
+      // Add the new confirmation
       this.notifications.push(notification);
+      
+      console.log('Current notifications:', [...this.notifications]);
     });
   }
 }

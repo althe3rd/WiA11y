@@ -798,25 +798,33 @@ export default {
     },
     async removeCrawl(crawlId) {
       try {
+        console.log('Initiating crawl removal for ID:', crawlId);
+        
         const confirmed = await notify.confirm('Are you sure you want to delete this crawl?', {
           type: 'danger',
-          confirmText: 'Delete',
-          cancelText: 'Cancel'
+          confirmText: 'Yes, Delete',
+          cancelText: 'No, Cancel'
         });
         
+        console.log('Confirmation result:', confirmed);
+        
         if (!confirmed) {
+          console.log('Crawl deletion cancelled by user');
           return;
         }
         
+        console.log('Proceeding with crawl deletion');
         const token = localStorage.getItem('token');
         await axios.delete(`${process.env.VUE_APP_API_URL}/api/crawls/${crawlId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
+        
         // Remove from local state
         this.crawls = this.crawls.filter(c => c._id !== crawlId);
         notify.success('Crawl deleted successfully');
+        console.log('Crawl deleted successfully');
       } catch (error) {
         console.error('Failed to remove crawl:', error);
         notify.error(error.response?.data?.error || 'Failed to remove crawl');
@@ -826,8 +834,8 @@ export default {
       try {
         const confirmed = await notify.confirm('Are you sure you want to cancel this crawl?', {
           type: 'warning',
-          confirmText: 'Cancel Scan',
-          cancelText: 'Keep Running'
+          confirmText: 'Yes, Cancel Scan',
+          cancelText: 'No, Keep Running'
         });
         
         if (!confirmed) {

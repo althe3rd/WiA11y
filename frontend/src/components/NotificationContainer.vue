@@ -1,28 +1,32 @@
 <template>
-  <div class="notification-container">
+  <div class="notifications-wrapper">
     <!-- Regular notifications -->
-    <transition-group name="notification-list">
-      <Notification 
-        v-for="notification in regularNotifications" 
-        :key="notification.id"
-        :message="notification.message"
-        :type="notification.type"
-        :duration="notification.duration"
-        :autoClose="notification.autoClose"
-        @close="closeNotification(notification.id)"
-      />
-    </transition-group>
+    <div class="notification-container">
+      <transition-group name="notification-list">
+        <Notification 
+          v-for="notification in regularNotifications" 
+          :key="notification.id"
+          :message="notification.message"
+          :type="notification.type"
+          :duration="notification.duration"
+          :autoClose="notification.autoClose"
+          @close="closeNotification(notification.id)"
+        />
+      </transition-group>
+    </div>
     
-    <!-- Confirmation dialogs -->
-    <ConfirmDialog
-      v-if="activeConfirmation"
-      :message="activeConfirmation.message"
-      :type="activeConfirmation.type || 'warning'"
-      :confirmText="activeConfirmation.confirmText || 'Confirm'"
-      :cancelText="activeConfirmation.cancelText || 'Cancel'"
-      @confirm="onConfirm(activeConfirmation)"
-      @cancel="onCancel(activeConfirmation)"
-    />
+    <!-- Confirmation dialogs - must be rendered separately -->
+    <div class="confirm-container">
+      <ConfirmDialog
+        v-if="activeConfirmation"
+        :message="activeConfirmation.message"
+        :type="activeConfirmation.dialogType || 'warning'"
+        :confirmText="activeConfirmation.confirmText || 'Yes'"
+        :cancelText="activeConfirmation.cancelText || 'No'"
+        @confirm="onConfirm(activeConfirmation)"
+        @cancel="onCancel(activeConfirmation)"
+      />
+    </div>
   </div>
 </template>
 
@@ -83,6 +87,16 @@ export default {
 </script>
 
 <style scoped>
+.notifications-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9000;
+}
+
 .notification-container {
   position: fixed;
   top: 0;
@@ -92,6 +106,20 @@ export default {
 }
 
 .notification-container > * {
+  pointer-events: auto;
+}
+
+.confirm-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9500;
+  pointer-events: none;
+}
+
+.confirm-container > * {
   pointer-events: auto;
 }
 

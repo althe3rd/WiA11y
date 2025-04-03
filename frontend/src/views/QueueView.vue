@@ -182,8 +182,8 @@ export default {
       try {
         const confirmed = await notify.confirm('Are you sure you want to cancel this scan?', {
           type: 'warning',
-          confirmText: 'Cancel Scan',
-          cancelText: 'Keep in Queue'
+          confirmText: 'Yes, Cancel Scan',
+          cancelText: 'No, Keep in Queue'
         });
         
         if (!confirmed) {
