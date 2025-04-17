@@ -16,6 +16,9 @@ router.use(auth);
 // Get queue status - must be before parameter routes
 router.get('/status', crawlController.getQueueStatus);
 
+// Get scheduled crawls - must be before parameter routes
+router.get('/scheduled', crawlController.getScheduledCrawls);
+
 // Export crawls as CSV (with standard auth middleware)
 router.get('/export/csv-auth', async (req, res) => {
   // This entire route can be removed since we fixed the main export/csv endpoint
@@ -540,5 +543,11 @@ router.get('/:id/progress', auth, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Update scheduled crawl
+router.patch('/:id/schedule', crawlController.updateScheduledCrawl);
+
+// Update crawl details
+router.patch('/:id', crawlController.updateCrawl);
 
 module.exports = router; 

@@ -12,6 +12,7 @@ import ResetPassword from '../views/ResetPassword.vue';
 import QueueView from '../views/QueueView.vue';
 import MarketingHome from '../views/MarketingHome.vue';
 import UserOnboarding from '../views/UserOnboarding.vue';
+import ScheduledCrawlsView from '../views/ScheduledCrawlsView.vue';
 import store from '../store';
 
 const routes = [
@@ -106,6 +107,12 @@ const routes = [
     path: '/onboarding',
     name: 'UserOnboarding',
     component: UserOnboarding,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/scheduled-scans',
+    name: 'ScheduledScans',
+    component: ScheduledCrawlsView,
     meta: { requiresAuth: true }
   }
 ];

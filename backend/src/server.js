@@ -6,6 +6,7 @@ const path = require('path');
 const { exec } = require('child_process');
 const util = require('util');
 const CrawlerService = require('./services/crawlerService');
+const schedulerService = require('./services/schedulerService');
 
 const execAsync = util.promisify(exec);
 
@@ -93,6 +94,8 @@ async function initializeServices() {
     if (process.env.NODE_ENV === 'production') {
       const crawlerService = new CrawlerService();
       await crawlerService.ensureTempfsDirectory();
+      // Start the scheduler service
+      schedulerService.start();
       console.log('Production services initialized successfully');
     } else {
       // In development, just ensure the temp directory exists
@@ -101,6 +104,8 @@ async function initializeServices() {
         fs.mkdirSync(tempDir, { recursive: true });
       }
       fs.chmodSync(tempDir, 0o777);
+      // Start the scheduler service in development too
+      schedulerService.start();
       console.log('Development services initialized successfully');
     }
   } catch (error) {

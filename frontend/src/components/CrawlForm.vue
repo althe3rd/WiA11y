@@ -74,6 +74,19 @@
 
       <div class="advanced-options" v-if="showAdvanced">
         <div class="form-group">
+          <label for="title">Scan Title (Optional)</label>
+          <input 
+            type="text" 
+            id="title" 
+            v-model="formData.title" 
+            placeholder="Enter a descriptive title for this scan"
+          >
+          <small class="helper-text">
+            This helps identify the scan when viewing results
+          </small>
+        </div>
+        
+        <div class="form-group">
           <label for="depthLimit">Scan Depth</label>
           <select id="depthLimit" v-model="formData.depthLimit" required>
             <option value="1">Homepage Only (Level 1)</option>
@@ -122,6 +135,33 @@
           <option value="AAA">Level AAA</option>
         </select>
       </div>
+        
+        <div class="schedule-section">
+          <h3 class="section-title">Schedule Recurring Scans</h3>
+          
+          <div class="form-group schedule-toggle">
+            <div class="checkbox-wrapper">
+              <input 
+                type="checkbox" 
+                id="enableSchedule" 
+                v-model="formData.isScheduled"
+              />
+              <label for="enableSchedule">Enable automatic recurring scans</label>
+            </div>
+          </div>
+          
+          <div class="form-group" v-if="formData.isScheduled">
+            <label for="scheduleFrequency">Scan Frequency</label>
+            <select id="scheduleFrequency" v-model="formData.scheduleFrequency">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+            <p class="schedule-helper-text">
+              This scan will automatically run on a {{ formData.scheduleFrequency }} basis
+            </p>
+          </div>
+        </div>
       </div>
 
       
@@ -202,11 +242,14 @@ export default {
     const formData = ref({
       url: '',
       team: '',
+      title: '',
       depthLimit: '2',
       pageLimit: 100,
       crawlRate: '30',
       wcagVersion: '2.1',
-      wcagLevel: 'AA'
+      wcagLevel: 'AA',
+      isScheduled: false,
+      scheduleFrequency: 'weekly'
     });
 
     const fetchTeams = async () => {
@@ -241,12 +284,15 @@ export default {
           url,
           domain,
           startPath,
+          title: formData.value.title || null,
           team: formData.value.team,
           depthLimit: parseInt(formData.value.depthLimit),
           pageLimit: parseInt(formData.value.pageLimit),
           crawlRate: parseInt(formData.value.crawlRate),
           wcagVersion: formData.value.wcagVersion,
-          wcagLevel: formData.value.wcagLevel
+          wcagLevel: formData.value.wcagLevel,
+          isScheduled: formData.value.isScheduled,
+          scheduleFrequency: formData.value.isScheduled ? formData.value.scheduleFrequency : null
         };
         
         console.log('Submitting crawl with data:', crawlData); // Debug log
@@ -258,11 +304,14 @@ export default {
         formData.value = {
           url: '',
           team: '',
+          title: '',
           depthLimit: '2',
           pageLimit: 100,
           crawlRate: '30',
           wcagVersion: '2.1',
-          wcagLevel: 'AA'
+          wcagLevel: 'AA',
+          isScheduled: false,
+          scheduleFrequency: 'weekly'
         };
       } catch (error) {
         console.error('Failed to create crawl:', error);
@@ -297,11 +346,14 @@ export default {
         formData.value = {
           url: '',
           team: '',
+          title: '',
           depthLimit: '2',
           pageLimit: 100,
           crawlRate: '30',
           wcagVersion: '2.1',
-          wcagLevel: 'AA'
+          wcagLevel: 'AA',
+          isScheduled: false,
+          scheduleFrequency: 'weekly'
         };
       } catch (error) {
         console.error('Failed to cancel crawl:', error);
@@ -327,11 +379,14 @@ export default {
         formData.value = {
           url: '',
           team: '',
+          title: '',
           depthLimit: '2',
           pageLimit: 100,
           crawlRate: '30',
           wcagVersion: '2.1',
-          wcagLevel: 'AA'
+          wcagLevel: 'AA',
+          isScheduled: false,
+          scheduleFrequency: 'weekly'
         };
         
         // Reset button after delay
@@ -640,5 +695,39 @@ button:disabled {
 
 .helper-text.error {
   color: var(--secondary-color);
+}
+
+.schedule-section {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border-color);
+}
+
+.section-title {
+  font-size: 16px;
+  margin-bottom: 15px;
+  color: var(--text-color);
+}
+
+.checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-wrapper input[type="checkbox"] {
+  width: auto;
+  margin-right: 5px;
+}
+
+.schedule-helper-text {
+  margin-top: 5px;
+  font-size: 0.85em;
+  color: var(--text-muted, #666);
+  font-style: italic;
+}
+
+.schedule-toggle {
+  margin-bottom: 15px;
 }
 </style> 

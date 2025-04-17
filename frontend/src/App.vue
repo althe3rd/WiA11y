@@ -7,6 +7,9 @@
         </div>
         <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
         <router-link to="/scans" class="nav-link">Scans</router-link>
+        <router-link to="/scheduled-scans" class="nav-link" :class="{ active: $route.path === '/scheduled-scans' }">
+          Scheduled
+        </router-link>
         <router-link to="/queue" class="nav-link" :class="{ active: $route.path === '/queue' }">
           Queue
         </router-link>

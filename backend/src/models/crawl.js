@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 
 const crawlSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    trim: true
+  },
   url: {
     type: String,
     required: true
@@ -83,12 +87,46 @@ const crawlSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  isScheduled: {
+    type: Boolean,
+    default: false
+  },
+  scheduleFrequency: {
+    type: String,
+    enum: ['daily', 'weekly', 'monthly'],
+    default: 'weekly'
+  },
+  nextScheduledRun: {
+    type: Date,
+    default: null
+  },
+  parentCrawlId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Crawl',
+    default: null
+  }
 }, {
   timestamps: true
 });
 
-// Add pre-save middleware to validate values
 crawlSchema.pre('save', function(next) {
+  if (this.isScheduled && !this.nextScheduledRun) {
+    const now = new Date();
+    
+    switch (this.scheduleFrequency) {
+      case 'daily':
+        this.nextScheduledRun = new Date(now.setDate(now.getDate() + 1));
+        break;
+      case 'weekly':
+        this.nextScheduledRun = new Date(now.setDate(now.getDate() + 7));
+        break;
+      case 'monthly':
+        this.nextScheduledRun = new Date(now.setMonth(now.getMonth() + 1));
+        break;
+      default:
+        this.nextScheduledRun = new Date(now.setDate(now.getDate() + 7));
+    }
+  }
   next();
 });
 

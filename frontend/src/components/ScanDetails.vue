@@ -1,8 +1,9 @@
 <template>
   <div class="scan-details">
     <div class="scan-header">
-      <h2>{{ crawl.domain }}</h2>
+      <h2>{{ crawl.title || crawl.domain }}</h2>
       <div class="scan-meta">
+        <span v-if="crawl.title" class="domain">{{ crawl.domain }}</span>
         <span class="timestamp">{{ formatDate(crawl.createdAt) }}</span>
         <span :class="['status', crawl.status]">{{ crawl.status }}</span>
       </div>
@@ -365,8 +366,21 @@ export default {
 
 .scan-meta {
   display: flex;
-  gap: 15px;
   align-items: center;
+  gap: 15px;
+  color: var(--text-muted);
+}
+
+.scan-meta .domain {
+  font-style: italic;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.scan-meta .timestamp {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .stats-grid {

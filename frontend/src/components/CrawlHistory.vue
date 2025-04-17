@@ -26,13 +26,15 @@
         >
           <div class="domain-header-content">
             <div class="domain-info">
-            <h3>{{ domain }}</h3>
-            <span v-if="domainMetadata[domain]?.isArchived" class="archived-badge">Archived</span>
-          </div>
-          <button class="edit-metadata-btn" @click.stop="editDomainMetadata(domain)" title="Edit domain settings">
-            <font-awesome-icon icon="edit" />
-            <span class="edit-label">Edit</span>
-          </button>
+              <h3 v-if="getLatestCrawlTitle(domain)" class="domain-title">{{ getLatestCrawlTitle(domain) }}</h3>
+              <h3 v-else>{{ domain }}</h3>
+              <span v-if="getLatestCrawlTitle(domain)" class="domain-url">{{ domain }}</span>
+              <span v-if="domainMetadata[domain]?.isArchived" class="archived-badge">Archived</span>
+            </div>
+            <button class="edit-metadata-btn" @click.stop="editDomainMetadata(domain)" title="Edit domain settings">
+              <font-awesome-icon icon="edit" />
+              <span class="edit-label">Edit</span>
+            </button>
           </div>
           <div class="domain-summary">
             <span class="latest-score">
@@ -113,6 +115,9 @@
                 </div>
               </div>
               <div class="crawl-details">
+                <p v-if="crawl.title" class="scan-title">
+                  <strong>Title:</strong> {{ crawl.title }}
+                </p>
                 <p class="created-by" v-if="crawl.createdBy">
                   Created by: {{ crawl.createdBy.name }} - {{ crawl.createdBy.email }}
                 </p>
@@ -184,7 +189,7 @@
   </div>
 
   <!-- Domain Metadata Modal -->
-  <div v-if="showMetadataModal" class="modal-overlay" @click.self="showMetadataModal = false">
+  <div v-if="showMetadataModal" class="modal-overlay" @click.self="showMetadataModal = false" style="display: none;">
     <div class="modal-content">
       <h3>Edit Domain Settings</h3>
       <form @submit.prevent="saveDomainMetadata">
@@ -249,6 +254,121 @@
       </form>
     </div>
   </div>
+
+  <!-- Edit Crawl Modal -->
+  <div v-if="showEditCrawlModal" class="modal-overlay" @click.self="showEditCrawlModal = false" style="display: none;">
+    <div class="modal-content">
+      <h3>Edit Scan Details</h3>
+      <form @submit.prevent="saveEditedCrawl">
+        <div class="form-group">
+          <label for="crawlTitle">Title</label>
+          <input 
+            type="text" 
+            id="crawlTitle" 
+            v-model="editingCrawl.title" 
+            placeholder="Enter a descriptive title for this scan"
+          >
+          <p class="help-text">Adding a title helps identify this scan in listings</p>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="cancel-btn" @click="showEditCrawlModal = false">Cancel</button>
+          <button type="submit" class="save-btn">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Unified edit modal for domain & scan settings -->
+  <div v-if="showUnifiedEditModal" class="modal-overlay" @click.self="closeUnifiedEditModal">
+    <div class="modal-content">
+      <h3>Edit {{ unifiedEdit.domain }}</h3>
+      <form @submit.prevent="saveUnifiedEdit">
+        <p class="help-text info">
+          This unified editor allows you to manage domain-wide settings and scan titles in one place.
+        </p>
+
+        <div class="form-group">
+          <label for="notes">Domain Notes</label>
+          <textarea 
+            id="notes" 
+            v-model="unifiedEdit.notes" 
+            rows="3"
+            placeholder="Add notes about this domain..."
+          ></textarea>
+        </div>
+        
+        <div class="form-group">
+          <div class="checkbox-wrapper">
+            <input 
+              type="checkbox" 
+              id="isArchived" 
+              v-model="unifiedEdit.isArchived"
+            />
+            <label for="isArchived">Archive Domain</label>
+          </div>
+          <p class="help-text">Archived domains are hidden from the main view</p>
+        </div>
+
+        <!-- Domain Scans Section -->
+        <div v-if="unifiedEdit.domainScans && unifiedEdit.domainScans.length > 0" class="domain-scans-section">
+          <h4 class="subtitle is-5 mt-4">Scan Title</h4>
+          <p class="help-text">Set a common title for all scans in this domain</p>
+          
+          <div class="form-group">
+            <div class="scan-title-input">
+              <input 
+                type="text" 
+                placeholder="Common scan title" 
+                v-model="unifiedEdit.commonTitle"
+              />
+            </div>
+            <p class="help-text">This title will be applied to all {{ unifiedEdit.domainScans.length }} scans</p>
+          </div>
+          
+          <div class="scans-list">
+            <p class="scans-count">{{ unifiedEdit.domainScans.length }} scans will be updated</p>
+            <div class="scans-dates">
+              <span v-for="(scan, index) in unifiedEdit.domainScans.slice(0, 3)" :key="scan._id" class="scan-date-chip">
+                {{ new Date(scan.createdAt).toLocaleDateString() }}
+              </span>
+              <span v-if="unifiedEdit.domainScans.length > 3" class="more-scans">
+                +{{ unifiedEdit.domainScans.length - 3 }} more
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div v-else-if="loading" class="text-center">
+          <div class="spinner-container">
+            <i class="fas fa-spinner fa-pulse"></i>
+          </div>
+          <p>Loading scans...</p>
+        </div>
+        
+        <div v-else class="no-scans-message">
+          No scans found for this domain.
+        </div>
+
+        <div class="modal-actions">
+          <button 
+            type="button" 
+            class="cancel-btn" 
+            @click="closeUnifiedEditModal"
+            :disabled="loading"
+          >
+            Cancel
+          </button>
+          <button 
+            type="submit" 
+            class="save-btn"
+            :disabled="loading"
+          >
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -270,7 +390,7 @@ export default {
   props: {
     selectedTeam: {
       type: String,
-      default: ''
+      default: null
     },
     selectedDateRange: {
       type: String,
@@ -278,7 +398,7 @@ export default {
     },
     limit: {
       type: Number,
-      default: 10
+      default: 5
     }
   },
   components: {
@@ -294,18 +414,31 @@ export default {
     const pollInterval = ref(null);
     const expandedDomains = ref([]);
     const domainMetadata = ref({});
-    const showMetadataModal = ref(false);
-    const editingMetadata = ref({
-      notes: '',
-      isArchived: false
-    });
+    const editingMetadata = ref({ domain: null, notes: '', isArchived: false });
+    const editingCrawl = ref({ _id: null, title: '' });
     const sortBy = ref('date');
+    const loading = ref(false);
 
     // New export modal state
     const showExportModal = ref(false);
+    const showEditCrawlModal = ref(false);
+    const showMetadataModal = ref(false);
+    const showUnifiedEditModal = ref(false);
+    const isExporting = ref(false);
     const exportOptions = ref({
       dateRange: 'all',
       team: ''
+    });
+    
+    // Unified edit state
+    const unifiedEdit = ref({
+      domain: '',
+      notes: '',
+      isArchived: false,
+      crawlId: null,
+      title: '',
+      commonTitle: '',
+      domainScans: []
     });
 
     // Access teams from store
@@ -554,76 +687,109 @@ export default {
     };
     
     const fetchDomainMetadata = async () => {
-      if (!props.selectedTeam) return;
       try {
-        const response = await api.get(`/api/teams/${props.selectedTeam}/domains/metadata`);
-        domainMetadata.value = response.data.reduce((acc, meta) => {
-          acc[meta.domain] = meta;
-          return acc;
-        }, {});
+        // Try to load from localStorage first
+        const savedMetadata = localStorage.getItem('domain-metadata');
+        if (savedMetadata) {
+          try {
+            domainMetadata.value = JSON.parse(savedMetadata);
+            console.log('Loaded domain metadata from localStorage:', domainMetadata.value);
+          } catch (e) {
+            console.error('Error parsing stored domain metadata:', e);
+          }
+        }
+        
+        // If there's a selected team, try API as well (future-proofing)
+        if (props.selectedTeam) {
+          try {
+            const response = await api.get(`/api/teams/${props.selectedTeam}/domains/metadata`);
+            if (response && response.data) {
+              const apiMetadata = response.data.reduce((acc, meta) => {
+                acc[meta.domain] = meta;
+                return acc;
+              }, {});
+              
+              // Merge with existing data from localStorage
+              domainMetadata.value = { ...domainMetadata.value, ...apiMetadata };
+            }
+          } catch (apiError) {
+            console.log('API fetch for domain metadata not implemented yet:', apiError);
+          }
+        }
       } catch (error) {
         console.error('Failed to fetch domain metadata:', error);
       }
     };
 
-    const editDomainMetadata = (domain) => {
-      editingMetadata.value = {
+    const editDomainMetadata = async (domain) => {
+      unifiedEdit.value = {
+        domain,
         notes: domainMetadata.value[domain]?.notes || '',
-        isArchived: domainMetadata.value[domain]?.isArchived || false
+        isArchived: domainMetadata.value[domain]?.isArchived || false,
+        crawlId: null,
+        title: '',
+        commonTitle: '',
+        domainScans: []
       };
-      showMetadataModal.value = true;
+      
+      // Fetch all scans for this domain
+      try {
+        loading.value = true;
+        const response = await api.get(`/api/crawls`, {
+          params: { domain }
+        });
+        
+        if (response.data) {
+          // Filter crawls for this domain
+          const domainCrawls = response.data.filter(crawl => 
+            crawl.domain === domain || crawl.domain === `www.${domain}`
+          );
+          unifiedEdit.value.domainScans = domainCrawls;
+        }
+      } catch (error) {
+        notify.error('Error loading scans for this domain');
+        console.error('Failed to fetch scans for domain:', error);
+      } finally {
+        loading.value = false;
+      }
+      
+      showUnifiedEditModal.value = true;
     };
 
     const saveDomainMetadata = async () => {
       try {
+        console.log('Saving domain metadata for', editingMetadata.value.domain);
         const domain = editingMetadata.value.domain;
-        const domainData = groupedCrawls.value[domain];
-        if (!domainData) {
-          throw new Error(`No crawl data found for domain: ${domain}`);
+        const notes = editingMetadata.value.notes;
+        const isArchived = editingMetadata.value.isArchived;
+        
+        // Update the local state
+        if (!domainMetadata.value[domain]) {
+          domainMetadata.value[domain] = {};
         }
-
-        // Flatten all crawls for this domain
-        const domainCrawls = Object.values(domainData).flat();
-        if (!domainCrawls.length) {
-          throw new Error('No crawl data found for domain');
+        
+        domainMetadata.value[domain].notes = notes;
+        domainMetadata.value[domain].isArchived = isArchived;
+        
+        // Save to localStorage for persistence between refreshes
+        try {
+          localStorage.setItem('domain-metadata', JSON.stringify(domainMetadata.value));
+          console.log('Saved domain metadata to localStorage');
+        } catch (storageError) {
+          console.error('Failed to save to localStorage:', storageError);
         }
-
-        // Get team ID from the first crawl
-        const teamId = domainCrawls[0]?.team?._id || domainCrawls[0]?.team;
-        if (!teamId) {
-          throw new Error('No team ID found for domain');
-        }
-
-        console.log('Saving metadata for domain:', {
+        
+        console.log('Updated domain metadata:', {
           domain,
-          teamId,
-          metadata: {
-            notes: editingMetadata.value.notes,
-            isArchived: editingMetadata.value.isArchived
-          }
+          notes,
+          isArchived
         });
-
-        const response = await api.patch(
-          `/api/teams/${teamId}/domains/${domain}/metadata`,
-          {
-            notes: editingMetadata.value.notes,
-            isArchived: editingMetadata.value.isArchived
-          }
-        );
-
-        // Update the local metadata state
-        domainMetadata.value[domain] = response.data;
+        
+        notify.success('Domain settings saved');
         showMetadataModal.value = false;
-        
-        // Refresh the crawls and metadata
-        await fetchCrawls();
-        await fetchDomainMetadata();
-        
-        notify.success('Domain settings saved successfully');
       } catch (error) {
         console.error('Error saving domain metadata:', error);
-        const errorMessage = error.response?.data?.error || 'Failed to save domain settings. Please try again.';
-        notify.error(errorMessage);
+        notify.error('Failed to save domain settings');
       }
     };
 
@@ -642,6 +808,7 @@ export default {
         const crawlData = {
           url: crawl.url,
           domain: crawl.domain,
+          title: crawl.title,
           team: crawl.team._id || crawl.team,
           depthLimit: crawl.depthLimit,
           pageLimit: crawl.pageLimit,
@@ -742,6 +909,352 @@ export default {
       return `WCAG ${crawl.wcagVersion} Level ${crawl.wcagLevel}`;
     };
 
+    const getScoreClass = (score) => {
+      if (score === '—') return 'score-pending';
+      if (score >= 90) return 'score-excellent';
+      if (score >= 70) return 'score-good';
+      if (score >= 50) return 'score-fair';
+      return 'score-poor';
+    };
+
+    const editCrawl = (crawl) => {
+      // Set up the unified edit modal with crawl and domain metadata
+      const domain = crawl.domain.replace(/^www\./i, '');
+      
+      unifiedEdit.value = {
+        domain: domain,
+        notes: domainMetadata.value[domain]?.notes || '',
+        isArchived: domainMetadata.value[domain]?.isArchived || false,
+        crawlId: crawl._id,
+        title: crawl.title || '',
+        commonTitle: '',
+        domainScans: []
+      };
+      
+      showUnifiedEditModal.value = true;
+    };
+    
+    const saveEditedCrawl = async (crawlId, title) => {
+      try {
+        if (!crawlId) {
+          throw new Error('No crawl ID found');
+        }
+        
+        console.log('Saving crawl title:', { crawlId, title });
+        
+        const response = await api.patch(
+          `/api/crawls/${crawlId}`,
+          { title }
+        );
+        
+        // Update the crawl in the local state
+        updateCrawlInLocalState(response.data);
+        
+        notify.success('Scan title updated successfully');
+        return true;
+      } catch (error) {
+        console.error('Error updating crawl:', error);
+        const errorMessage = error.response?.data?.error || 'Failed to update scan details. Please try again.';
+        notify.error(errorMessage);
+        return false;
+      }
+    };
+    
+    const updateCrawlInLocalState = (updatedCrawl) => {
+      // Find the crawl in our local state and update it
+      for (const domain in groupedCrawls.value) {
+        for (const wcagSpec in groupedCrawls.value[domain]) {
+          const crawlIndex = groupedCrawls.value[domain][wcagSpec].findIndex(c => c._id === updatedCrawl._id);
+          if (crawlIndex !== -1) {
+            // Update the crawl with the new data
+            groupedCrawls.value[domain][wcagSpec][crawlIndex] = {
+              ...groupedCrawls.value[domain][wcagSpec][crawlIndex],
+              ...updatedCrawl
+            };
+            return;
+          }
+        }
+      }
+    };
+
+    const getDepthLabel = (depth) => {
+      const labels = {
+        1: 'Homepage Only (Level 1)',
+        2: 'Shallow (2 Levels)',
+        3: 'Medium (3 Levels)',
+        4: 'Deep (4 Levels)',
+        5: 'Very Deep (5 Levels)'
+      };
+      return labels[depth] || `${depth} Levels`;
+    };
+
+    const getScoreDifference = (currentScore, previousScore) => {
+      if (currentScore === '—' || previousScore === '—') return '';
+      const diff = (currentScore - previousScore).toFixed(1);
+      return diff > 0 ? `+${diff}%` : `${diff}%`;
+    };
+
+    const getScoreTrendClass = (currentScore, previousScore) => {
+      if (currentScore === '—' || previousScore === '—' || currentScore === previousScore) return 'neutral';
+      return currentScore > previousScore ? 'improved' : 'declined';
+    };
+
+    const getDomainOverallTrendClass = (domainData) => {
+      const allCrawls = Object.values(domainData).flat()
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      if (allCrawls.length < 2) return 'neutral';
+      
+      const first = calculateScore(allCrawls[0]);
+      const last = calculateScore(allCrawls[allCrawls.length - 1]);
+      
+      if (first === '—' || last === '—' || first === last) return 'neutral';
+      return last > first ? 'improved' : 'declined';
+    };
+
+    const getDomainOverallTrendSummary = (domainData) => {
+      const allCrawls = Object.values(domainData).flat()
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      if (allCrawls.length < 2) return 'No trend data';
+      
+      const first = calculateScore(allCrawls[0]);
+      const last = calculateScore(allCrawls[allCrawls.length - 1]);
+      
+      if (first === '—' || last === '—') return 'No trend data';
+      
+      const diff = (last - first).toFixed(1);
+      const totalScans = allCrawls.length;
+      if (diff > 0) {
+        return `Improved by ${diff}% over ${totalScans} scans`;
+      } else if (diff < 0) {
+        return `Declined by ${Math.abs(diff)}% over ${totalScans} scans`;
+      }
+      return 'No change in score';
+    };
+
+    const getCrawlSpeed = (rate) => {
+      if (rate <= 10) return 'Slow';
+      if (rate <= 30) return 'Medium';
+      return 'Fast';
+    };
+
+    const getViolationPercentage = (violationCount, totalViolations) => {
+      // If there are no violations, return 0
+      if (totalViolations === 0) return 0;
+      // Calculate the percentage based on the total violations
+      // This ensures all segments together will total 100%
+      return (violationCount / totalViolations) * 100;
+    };
+
+    const getTotalViolations = (violationsByImpact) => {
+      return violationsByImpact.critical + 
+             violationsByImpact.serious + 
+             violationsByImpact.moderate + 
+             violationsByImpact.minor;
+    };
+
+    const formatDate = (dateString) => {
+      const date = new Date(dateString);
+      return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric'
+      }).format(date);
+    };
+
+    const toggleDomain = (domain) => {
+      const index = expandedDomains.value.indexOf(domain);
+      if (index === -1) {
+        expandedDomains.value.push(domain);
+      } else {
+        expandedDomains.value.splice(index, 1);
+      }
+    };
+
+    const formatStatus = (crawl) => {
+      const statusMap = {
+        completed: 'Completed',
+        in_progress: 'In Progress',
+        failed: 'Failed',
+        cancelled: 'Cancelled',
+        pending: 'Pending',
+        queued: `Queued (#${crawl.queuePosition})`
+      };
+      return statusMap[crawl.status] || crawl.status;
+    };
+
+    const getInProgressScan = (domainData) => {
+      const allCrawls = Object.values(domainData).flat();
+      const inProgressCrawl = allCrawls.find(crawl => crawl.status === 'in_progress');
+      
+      if (!inProgressCrawl) return null;
+      
+      // Calculate progress based on pages scanned vs page limit
+      const progress = Math.min(
+        ((inProgressCrawl.pagesScanned || 0) / (inProgressCrawl.pageLimit || 100)) * 100,
+        100
+      );
+      
+      return {
+        ...inProgressCrawl,
+        progress: progress - 100 // Offset for transform
+      };
+    };
+
+    const cancelCrawl = async (crawlId) => {
+      try {
+        const confirmed = await notify.confirm('Are you sure you want to cancel this crawl?', {
+          type: 'warning',
+          confirmText: 'Yes, Cancel Scan',
+          cancelText: 'No, Keep Running'
+        });
+        
+        if (!confirmed) {
+          return;
+        }
+        
+        const response = await api.post(`/api/crawls/${crawlId}/cancel`);
+        
+        // Update local state by refetching crawls
+        fetchCrawls();
+        
+        notify.success('Crawl cancelled successfully');
+      } catch (error) {
+        console.error('Failed to cancel crawl:', error);
+        notify.error(error.response?.data?.error || 'Failed to cancel crawl');
+      }
+    };
+
+    const removeCrawl = async (crawlId) => {
+      try {
+        console.log('Initiating crawl removal for ID:', crawlId);
+        
+        const confirmed = await notify.confirm('Are you sure you want to delete this crawl?', {
+          type: 'danger',
+          confirmText: 'Yes, Delete',
+          cancelText: 'No, Cancel'
+        });
+        
+        console.log('Confirmation result:', confirmed);
+        
+        if (!confirmed) {
+          console.log('Crawl deletion cancelled by user');
+          return;
+        }
+        
+        console.log('Proceeding with crawl deletion');
+        await api.delete(`/api/crawls/${crawlId}`);
+        
+        // Refresh crawls to update UI
+        fetchCrawls();
+        
+        notify.success('Crawl deleted successfully');
+        console.log('Crawl deleted successfully');
+      } catch (error) {
+        console.error('Failed to remove crawl:', error);
+        notify.error(error.response?.data?.error || 'Failed to remove crawl');
+      }
+    };
+
+    const getLatestCrawlTitle = (domain) => {
+      if (!groupedCrawls.value[domain]) return null;
+      
+      // Find the most recent crawl across all WCAG specifications for this domain
+      const allCrawls = Object.values(groupedCrawls.value[domain]).flat();
+      const latestCrawl = allCrawls.reduce((latest, current) => {
+        return !latest || new Date(current.createdAt) > new Date(latest.createdAt) 
+          ? current 
+          : latest;
+      }, null);
+      
+      return latestCrawl?.title || null;
+    };
+
+    const closeUnifiedEditModal = () => {
+      showUnifiedEditModal.value = false;
+      // Reset the unified edit state
+      unifiedEdit.value = {
+        domain: '',
+        notes: '',
+        isArchived: false,
+        crawlId: null,
+        title: '',
+        commonTitle: '',
+        domainScans: []
+      };
+    };
+    
+    const saveUnifiedEdit = async () => {
+      try {
+        loading.value = true;
+        
+        // Save domain metadata
+        if (unifiedEdit.value.domain) {
+          try {
+            // Update local state first
+            if (!domainMetadata.value[unifiedEdit.value.domain]) {
+              domainMetadata.value[unifiedEdit.value.domain] = {};
+            }
+            domainMetadata.value[unifiedEdit.value.domain].notes = unifiedEdit.value.notes;
+            domainMetadata.value[unifiedEdit.value.domain].isArchived = unifiedEdit.value.isArchived;
+            
+            // Save to localStorage for persistence between refreshes
+            try {
+              localStorage.setItem('domain-metadata', JSON.stringify(domainMetadata.value));
+              console.log('Saved domain metadata to localStorage');
+            } catch (storageError) {
+              console.error('Failed to save to localStorage:', storageError);
+            }
+            
+            console.log('Updated domain metadata state:', domainMetadata.value[unifiedEdit.value.domain]);
+          } catch (metadataError) {
+            console.error('Error updating metadata:', metadataError);
+          }
+
+          // Apply the common title to all scans if provided
+          if (unifiedEdit.value.commonTitle && unifiedEdit.value.domainScans.length > 0) {
+            try {
+              console.log(`Updating titles for ${unifiedEdit.value.domainScans.length} scans to: ${unifiedEdit.value.commonTitle}`);
+              
+              // Use individual updates - most reliable approach
+              const updatePromises = unifiedEdit.value.domainScans.map(scan => 
+                api.patch(
+                  `/api/crawls/${scan._id}`,
+                  { title: unifiedEdit.value.commonTitle }
+                ).catch(err => {
+                  console.error(`Failed to update title for scan ${scan._id}:`, err);
+                  return null;
+                })
+              );
+              
+              await Promise.allSettled(updatePromises);
+              
+              // Update crawls in local state regardless of API success
+              unifiedEdit.value.domainScans.forEach(scan => {
+                const crawlIndex = crawls.value.findIndex(c => c._id === scan._id);
+                if (crawlIndex > -1) {
+                  crawls.value[crawlIndex].title = unifiedEdit.value.commonTitle;
+                }
+              });
+              
+              notify.success(`Updated titles for ${unifiedEdit.value.domainScans.length} scans`);
+            } catch (error) {
+              console.error('Error updating scan titles:', error);
+              notify.error('Some scan titles may not have been updated');
+            }
+          }
+        }
+
+        // Close the modal
+        showUnifiedEditModal.value = false;
+        loading.value = false;
+      } catch (error) {
+        notify.error('Failed to save domain settings');
+        console.error('Error saving unified edit:', error);
+      }
+    };
+
     return {
       crawls,
       pollInterval,
@@ -764,206 +1277,33 @@ export default {
       showExportModal,
       exportOptions,
       availableTeams,
-      performExport
+      performExport,
+      showEditCrawlModal,
+      editingCrawl,
+      editCrawl,
+      saveEditedCrawl,
+      getScoreClass,
+      getDepthLabel,
+      getScoreTrendClass,
+      getScoreDifference,
+      getDomainOverallTrendClass,
+      getDomainOverallTrendSummary,
+      getCrawlSpeed,
+      getViolationPercentage,
+      getTotalViolations,
+      formatDate,
+      toggleDomain,
+      formatStatus,
+      getInProgressScan,
+      cancelCrawl,
+      removeCrawl,
+      getLatestCrawlTitle,
+      showUnifiedEditModal,
+      unifiedEdit,
+      closeUnifiedEditModal,
+      saveUnifiedEdit,
+      loading
     };
-  },
-  methods: {
-    normalizeDomain(domain) {
-      return domain.replace(/^www\./i, '');
-    },
-    formatDate(dateString) {
-      const date = new Date(dateString);
-      return new Intl.DateTimeFormat('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: 'numeric'
-      }).format(date);
-    },
-    getCrawlSpeed(rate) {
-      if (rate <= 10) return 'Slow';
-      if (rate <= 30) return 'Medium';
-      return 'Fast';
-    },
-    getDepthLabel(depth) {
-      const labels = {
-        1: 'Homepage Only (Level 1)',
-        2: 'Shallow (2 Levels)',
-        3: 'Medium (3 Levels)',
-        4: 'Deep (4 Levels)',
-        5: 'Very Deep (5 Levels)'
-      };
-      return labels[depth] || `${depth} Levels`;
-    },
-    async removeCrawl(crawlId) {
-      try {
-        console.log('Initiating crawl removal for ID:', crawlId);
-        
-        const confirmed = await notify.confirm('Are you sure you want to delete this crawl?', {
-          type: 'danger',
-          confirmText: 'Yes, Delete',
-          cancelText: 'No, Cancel'
-        });
-        
-        console.log('Confirmation result:', confirmed);
-        
-        if (!confirmed) {
-          console.log('Crawl deletion cancelled by user');
-          return;
-        }
-        
-        console.log('Proceeding with crawl deletion');
-        const token = localStorage.getItem('token');
-        await axios.delete(`${process.env.VUE_APP_API_URL}/api/crawls/${crawlId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        // Remove from local state
-        this.crawls = this.crawls.filter(c => c._id !== crawlId);
-        notify.success('Crawl deleted successfully');
-        console.log('Crawl deleted successfully');
-      } catch (error) {
-        console.error('Failed to remove crawl:', error);
-        notify.error(error.response?.data?.error || 'Failed to remove crawl');
-      }
-    },
-    async cancelCrawl(crawlId) {
-      try {
-        const confirmed = await notify.confirm('Are you sure you want to cancel this crawl?', {
-          type: 'warning',
-          confirmText: 'Yes, Cancel Scan',
-          cancelText: 'No, Keep Running'
-        });
-        
-        if (!confirmed) {
-          return;
-        }
-        
-        const token = localStorage.getItem('token');
-        const response = await axios.post(`${process.env.VUE_APP_API_URL}/api/crawls/${crawlId}/cancel`, {}, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        // Update local state
-        const index = this.crawls.findIndex(c => c._id === crawlId);
-        if (index !== -1) {
-          this.crawls[index] = response.data;
-        }
-        notify.success('Crawl cancelled successfully');
-      } catch (error) {
-        console.error('Failed to cancel crawl:', error);
-        notify.error(error.response?.data?.error || 'Failed to cancel crawl');
-      }
-    },
-    getScoreDifference(currentScore, previousScore) {
-      if (currentScore === '—' || previousScore === '—') return '';
-      const diff = (currentScore - previousScore).toFixed(1);
-      return diff > 0 ? `+${diff}%` : `${diff}%`;
-    },
-    getScoreTrendClass(currentScore, previousScore) {
-      if (currentScore === '—' || previousScore === '—' || currentScore === previousScore) return 'neutral';
-      return currentScore > previousScore ? 'improved' : 'declined';
-    },
-    getDomainOverallTrendClass(domainData) {
-      const allCrawls = Object.values(domainData).flat()
-        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-      if (allCrawls.length < 2) return 'neutral';
-      
-      const first = this.calculateScore(allCrawls[0]);
-      const last = this.calculateScore(allCrawls[allCrawls.length - 1]);
-      
-      if (first === '—' || last === '—' || first === last) return 'neutral';
-      return last > first ? 'improved' : 'declined';
-    },
-    getDomainOverallTrendSummary(domainData) {
-      const allCrawls = Object.values(domainData).flat()
-        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-      if (allCrawls.length < 2) return 'No trend data';
-      
-      const first = this.calculateScore(allCrawls[0]);
-      const last = this.calculateScore(allCrawls[allCrawls.length - 1]);
-      
-      if (first === '—' || last === '—') return 'No trend data';
-      
-      const diff = (last - first).toFixed(1);
-      const totalScans = allCrawls.length;
-      if (diff > 0) {
-        return `Improved by ${diff}% over ${totalScans} scans`;
-      } else if (diff < 0) {
-        return `Declined by ${Math.abs(diff)}% over ${totalScans} scans`;
-      }
-      return 'No change in score';
-    },
-    toggleDomain(domain) {
-      const index = this.expandedDomains.indexOf(domain);
-      if (index === -1) {
-        this.expandedDomains.push(domain);
-      } else {
-        this.expandedDomains.splice(index, 1);
-      }
-    },
-    getScoreClass(score) {
-      if (score === '—') return 'score-pending';
-      if (score >= 90) return 'score-excellent';
-      if (score >= 70) return 'score-good';
-      if (score >= 50) return 'score-fair';
-      return 'score-poor';
-    },
-    formatStatus(crawl) {
-      const statusMap = {
-        completed: 'Completed',
-        in_progress: 'In Progress',
-        failed: 'Failed',
-        cancelled: 'Cancelled',
-        pending: 'Pending',
-        queued: `Queued (#${crawl.queuePosition})`
-      };
-      return statusMap[crawl.status] || crawl.status;
-    },
-    displayDomain(crawl) {
-      return this.normalizeDomain(crawl.domain);
-    },
-    getInProgressScan(domainData) {
-      const allCrawls = Object.values(domainData).flat();
-      const inProgressCrawl = allCrawls.find(crawl => crawl.status === 'in_progress');
-      
-      if (!inProgressCrawl) return null;
-      
-      // Calculate progress based on pages scanned vs page limit
-      const progress = Math.min(
-        ((inProgressCrawl.pagesScanned || 0) / (inProgressCrawl.pageLimit || 100)) * 100,
-        100
-      );
-      
-      return {
-        ...inProgressCrawl,
-        progress: progress - 100 // Offset for transform
-      };
-    },
-    getViolationPercentage(violationCount, totalViolations) {
-      // If there are no violations, return 0
-      if (totalViolations === 0) return 0;
-      // Calculate the percentage based on the total violations
-      // This ensures all segments together will total 100%
-      return (violationCount / totalViolations) * 100;
-    },
-    getTotalViolations(violationsByImpact) {
-      return violationsByImpact.critical + 
-             violationsByImpact.serious + 
-             violationsByImpact.moderate + 
-             violationsByImpact.minor;
-    },
-    calculateAverageScore(crawls) {
-      const activeCrawls = crawls.filter(crawl => !this.domainMetadata[crawl.domain]?.isArchived);
-      if (activeCrawls.length === 0) return null;
-      
-      const totalScore = activeCrawls.reduce((sum, crawl) => sum + (crawl.accessibilityScore || 0), 0);
-      return Math.round(totalScore / activeCrawls.length);
-    }
   },
   created() {
     console.log('CrawlHistory component created - starting initial fetch');
@@ -1208,42 +1548,44 @@ export default {
 
 .crawl-actions {
   display: flex;
-  gap: 10px;
-  margin-left: auto;
+  gap: 8px;
 }
 
-.cancel-button,
-.remove-button {
-  padding: 5px 10px;
+.edit-button,
+.remove-button,
+.cancel-button {
+  background: none;
   border: none;
   border-radius: 4px;
+  width: auto;
+  padding: 4px 8px;
   cursor: pointer;
-  font-size: 14px;
-  white-space: nowrap;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-button {
+  color: var(--primary-color);
+}
+
+.edit-button:hover {
+  background-color: rgba(var(--primary-color-rgb, 56, 143, 236), 0.1);
+}
+
+.remove-button {
+  color: var(--secondary-color, #FF006E);
+}
+
+.remove-button:hover {
+  background-color: rgba(var(--secondary-color-rgb, 255, 0, 110), 0.1);
 }
 
 .cancel-button {
-  background-color: #ff9800;
   color: white;
-}
-
-.remove-button {
-  background: none;
-  border: none;
-  color: #dc3545;
-  padding: 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.remove-button:hover {
-  background-color: rgba(220, 53, 69, 0.1);
-}
-
-.cancel-button:hover,
-.remove-button:hover {
-  opacity: 0.9;
+  background-color: var(--secondary-color, #FF006E);
+  padding: 4px 10px;
 }
 
 .domain-group {
@@ -1629,8 +1971,27 @@ export default {
 
 .domain-info {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.domain-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.domain-url {
+  font-size: 12px;
+  color: #637381;
+  font-weight: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .archived-badge {
@@ -1765,5 +2126,136 @@ export default {
 
 .cancel-btn:hover {
   background-color: var(--secondary-button-hover-bg);
+}
+
+/* Unified modal styles */
+.unified-modal {
+  max-width: 600px;
+}
+
+.section-header {
+  margin-bottom: 15px;
+}
+
+.section-header h4 {
+  font-size: 1.1rem;
+  margin: 0 0 5px 0;
+  color: var(--heading-color);
+  font-weight: 600;
+}
+
+.section-description {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.section-divider {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 30px 0;
+}
+
+/* Enhanced help text */
+.help-text.info {
+  color: var(--info-color, #0d6efd);
+  font-style: italic;
+  margin-top: 8px;
+}
+
+.scan-edit-item {
+  margin-bottom: 15px;
+}
+
+.scan-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.scan-title-input {
+  flex-grow: 1;
+}
+
+.scan-title-input input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--input-background, #fff);
+  color: var(--text-color);
+}
+
+.scan-date {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.text-center {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.spinner-container {
+  font-size: 24px;
+  color: var(--primary-color);
+  margin-bottom: 10px;
+}
+
+.no-scans-message {
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  color: #6c757d;
+  text-align: center;
+  margin: 15px 0;
+}
+
+.domain-scans-section {
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.domain-scans-section h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.scans-list {
+  margin-top: 15px;
+  padding: 15px;
+  background-color: var(--background-color, #f5f7fa);
+  border-radius: 6px;
+}
+
+.scans-count {
+  font-size: 0.9em;
+  color: var(--text-muted, #6c757d);
+  margin-bottom: 10px;
+  margin-top: 0;
+}
+
+.scans-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scan-date-chip {
+  padding: 4px 10px;
+  background-color: var(--card-background, #fff);
+  border: 1px solid var(--border-color, #dee2e6);
+  border-radius: 16px;
+  font-size: 0.85em;
+  color: var(--text-color, #212529);
+}
+
+.more-scans {
+  font-size: 0.85em;
+  color: var(--text-muted, #6c757d);
+  padding: 4px 0;
 }
 </style> 

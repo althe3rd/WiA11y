@@ -29,12 +29,15 @@ const crawlController = {
       const { 
         url, 
         domain,
+        title,
         team,
         depthLimit,
         pageLimit,
         crawlRate,
         wcagVersion,
-        wcagLevel 
+        wcagLevel,
+        isScheduled,
+        scheduleFrequency
       } = req.body;
 
       // Use the full URL for domain normalization to preserve path
@@ -61,6 +64,7 @@ const crawlController = {
       const crawl = new Crawl({
         url: url || domain, // Use the full URL to preserve the path
         domain: normalizedDomain,
+        title: title || null, // Add title field
         team,
         createdBy: req.user._id,
         depthLimit: Number(depthLimit),
@@ -68,7 +72,9 @@ const crawlController = {
         crawlRate: Number(crawlRate),
         wcagVersion,
         wcagLevel,
-        status: 'pending'
+        status: 'pending',
+        isScheduled: isScheduled === true,
+        scheduleFrequency: isScheduled ? scheduleFrequency : null
       });
 
       console.log('Created crawl object:', crawl);
@@ -78,6 +84,11 @@ const crawlController = {
 
       // Add to queue
       await queueService.addToQueue(crawl._id);
+
+      // Log information about scheduling if enabled
+      if (crawl.isScheduled) {
+        console.log(`Crawl scheduled for ${crawl.scheduleFrequency} recurring runs. Next run: ${crawl.nextScheduledRun}`);
+      }
 
       res.status(201).json(crawl);
     } catch (error) {
@@ -278,6 +289,125 @@ const crawlController = {
     } catch (error) {
       console.error('Get queue status error:', error);
       res.status(500).json({ error: 'Failed to fetch queue status' });
+    }
+  },
+  async getScheduledCrawls(req, res) {
+    try {
+      const query = { isScheduled: true };
+      
+      // If not network admin or admin, filter crawls
+      if (!['network_admin', 'admin'].includes(req.user.role)) {
+        // Get teams user is part of
+        const teams = await Team.find({
+          $or: [
+            { teamAdmins: req.user._id },
+            { members: req.user._id }
+          ]
+        }).select('_id');
+        
+        const teamIds = teams.map(team => team._id);
+        
+        query.$or = [
+          { team: { $in: teamIds } },
+          { createdBy: req.user._id }
+        ];
+      }
+
+      const scheduledCrawls = await Crawl.find(query)
+        .sort({ nextScheduledRun: 1 })
+        .populate('createdBy', 'name email')
+        .populate('team', 'name')
+        .lean();
+
+      res.json(scheduledCrawls);
+    } catch (error) {
+      console.error('Get scheduled crawls error:', error);
+      res.status(500).json({ error: 'Failed to fetch scheduled crawls' });
+    }
+  },
+  async updateScheduledCrawl(req, res) {
+    try {
+      const crawl = await Crawl.findById(req.params.id);
+      
+      if (!crawl) {
+        return res.status(404).json({ error: 'Crawl not found' });
+      }
+
+      // Check authorization
+      if (!['network_admin', 'admin'].includes(req.user.role) && 
+          crawl.createdBy.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ error: 'Not authorized to update this crawl' });
+      }
+
+      const { isScheduled, scheduleFrequency } = req.body;
+      
+      // Update scheduling properties
+      crawl.isScheduled = isScheduled;
+      
+      if (isScheduled) {
+        crawl.scheduleFrequency = scheduleFrequency || crawl.scheduleFrequency || 'weekly';
+        
+        // If unscheduled and now scheduled again, set next run date
+        if (!crawl.nextScheduledRun) {
+          const now = new Date();
+          let nextRun = new Date(now);
+          
+          switch (crawl.scheduleFrequency) {
+            case 'daily':
+              nextRun.setDate(nextRun.getDate() + 1);
+              break;
+            case 'weekly':
+              nextRun.setDate(nextRun.getDate() + 7);
+              break;
+            case 'monthly':
+              nextRun.setMonth(nextRun.getMonth() + 1);
+              break;
+            default:
+              nextRun.setDate(nextRun.getDate() + 7);
+          }
+          
+          crawl.nextScheduledRun = nextRun;
+        }
+      } else {
+        // If removing schedule, clear next run date
+        crawl.nextScheduledRun = null;
+      }
+
+      await crawl.save();
+      
+      res.json(crawl);
+    } catch (error) {
+      console.error('Update scheduled crawl error:', error);
+      res.status(500).json({ error: 'Failed to update scheduled crawl' });
+    }
+  },
+  async updateCrawl(req, res) {
+    try {
+      const crawl = await Crawl.findById(req.params.id);
+      
+      if (!crawl) {
+        return res.status(404).json({ error: 'Crawl not found' });
+      }
+
+      // Check authorization
+      if (!['network_admin', 'admin'].includes(req.user.role) && 
+          crawl.createdBy.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ error: 'Not authorized to update this crawl' });
+      }
+
+      const { title } = req.body;
+      
+      // Only update fields that were provided
+      if (title !== undefined) {
+        crawl.title = title;
+      }
+
+      await crawl.save();
+      
+      res.json(crawl);
+    } catch (error) {
+      console.error('Update crawl error:', error);
+      res.status(500).json({ error: 'Failed to update crawl' });
     }
   }
 };
